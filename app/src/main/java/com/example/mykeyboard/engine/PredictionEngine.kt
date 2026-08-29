@@ -59,7 +59,55 @@ class PredictionEngine(context: Context) {
         "we are" to listOf("going", "here", "ready", "looking", "happy"),
         "we" to listOf("are", "have", "will", "can", "need", "want"),
         "they are" to listOf("not", "all", "here", "going", "very"),
-        "they" to listOf("are", "have", "will", "were", "said")
+        "they" to listOf("are", "have", "will", "were", "said"),
+
+        // Hinglish Next-Word Predictions
+        "kya" to listOf("kar", "rahe", "hua", "hai", "h", "baat"),
+        "kya kar" to listOf("rahe", "raha", "rahi", "ho"),
+        "kaise" to listOf("ho", "hai", "h", "chal", "kare"),
+        "kaise ho" to listOf("aap", "bhai", "yaar", "sab"),
+        "kaha" to listOf("ho", "hai", "ja", "par", "se"),
+        "kaha ho" to listOf("aap", "bhai", "yaar"),
+        "main" to listOf("bhi", "theek", "hu", "hoon", "aaj", "ghar"),
+        "mai" to listOf("bhi", "theek", "hu", "hoon", "aaj", "ghar"),
+        "main theek" to listOf("hu", "hoon", "bhai", "yaar"),
+        "aap" to listOf("kaise", "kaha", "kya", "batao", "sunao"),
+        "aap kaise" to listOf("ho", "hain"),
+        "tum" to listOf("kaise", "kaha", "kya", "kab", "aao"),
+        "haan" to listOf("bhai", "yaar", "sahi", "bol", "theek"),
+        "ha" to listOf("bhai", "yaar", "sahi", "bol", "theek"),
+        "theek" to listOf("hai", "h", "bhai", "hona"),
+        "thik" to listOf("hai", "h", "bhai", "hona"),
+        "achha" to listOf("hai", "thik", "bhai", "theek"),
+        "acha" to listOf("hai", "thik", "bhai", "theek"),
+        "bhai" to listOf("kya", "kaha", "suno", "sun", "kaisa"),
+        "yaar" to listOf("kya", "suno", "matlab", "sahi", "chal"),
+        "bolo" to listOf("bhai", "kya", "sun", "yaar"),
+        "sun" to listOf("na", "bhai", "yaar", "ek"),
+        "suno" to listOf("na", "bhai", "yaar", "ek"),
+        "chalo" to listOf("theek", "chal", "milte", "aao"),
+        "milte" to listOf("hain", "hai", "kal", "shaam"),
+        "kal" to listOf("milte", "aana", "karte", "chalenge"),
+        "aaj" to listOf("nahi", "kya", "aao", "karte"),
+        "nahi" to listOf("pata", "yaar", "bhai", "hoga"),
+        "nhi" to listOf("pata", "yaar", "bhai", "hoga"),
+        "pata" to listOf("nahi", "h", "hai", "chal"),
+        "bahut" to listOf("badhiya", "accha", "mast", "sahi"),
+        "bhot" to listOf("badhiya", "accha", "mast", "sahi"),
+        "mast" to listOf("hai", "yaar", "bhai"),
+        "badhiya" to listOf("hai", "h", "bhai"),
+        "sahi" to listOf("hai", "baat", "h"),
+        "shukriya" to listOf("bhai", "aapka", "yaar"),
+        "dhanyawad" to listOf("aapka", "bhai"),
+        "namaste" to listOf("ji", "aapko"),
+        "kuch" to listOf("nahi", "bhi", "karo", "bolo"),
+        "ab" to listOf("kya", "chal", "niklo", "aao"),
+        "ghar" to listOf("par", "aao", "ja", "chalo"),
+        "kab" to listOf("aana", "aaoge", "chalna", "hai"),
+        "kyun" to listOf("bhai", "nahi", "kya"),
+        "kyu" to listOf("bhai", "nahi", "kya"),
+        "sab" to listOf("badhiya", "theek", "kuch"),
+        "sab theek" to listOf("hai", "h")
     )
 
     private val COMMON_DICTIONARY = listOf(
@@ -75,7 +123,18 @@ class PredictionEngine(context: Context) {
         "even", "new", "want", "because", "any", "these", "give", "day", "most", "us",
         "hello", "thanks", "please", "keyboard", "android", "awesome", "great", "today", "tomorrow",
         "friend", "family", "message", "happy", "ready", "morning", "night", "home", "work", "school",
-        "phone", "email", "place", "thing", "love", "help", "need", "call", "start", "finish"
+        "phone", "email", "place", "thing", "love", "help", "need", "call", "start", "finish",
+
+        // Hinglish Vocabulary Words
+        "kya", "kaise", "kaha", "kahan", "kab", "kyu", "kyun", "main", "mai", "hum", "aap", "tum", "tu",
+        "haan", "ha", "nahi", "nhi", "na", "theek", "thik", "achha", "acha", "badhiya", "mast", "bhai",
+        "yaar", "dost", "bolo", "suno", "sun", "dekho", "chalo", "chal", "milte", "kal", "aaj", "ab",
+        "abhi", "raat", "subah", "shaam", "ghar", "kaam", "pata", "hoga", "hona", "karo", "karna",
+        "rahe", "raha", "rahi", "hai", "hain", "hoon", "hu", "tha", "thi", "the", "bhi", "bahut", "bhot",
+        "kam", "jyada", "zyada", "sahi", "galat", "shukriya", "dhanyawad", "namaste", "alvida", "waise",
+        "lekin", "magar", "par", "pe", "se", "ko", "ke", "ki", "ka", "aur", "ya", "toh", "to", "matlab",
+        "kuch", "sab", "apna", "apni", "apne", "mera", "meri", "mere", "tera", "teri", "tere", "unka",
+        "unki", "unke", "iska", "iski", "iske"
     )
 
     fun learnWord(word: String) {

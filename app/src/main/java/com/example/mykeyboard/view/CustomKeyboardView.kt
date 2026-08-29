@@ -159,7 +159,7 @@ class CustomKeyboardView @JvmOverloads constructor(
         }
 
         val isTablet = context.resources.configuration.smallestScreenWidthDp >= 600
-        val initialBottomPad = if (isTablet) dpToPx(32) else dpToPx(16)
+        val initialBottomPad = if (isTablet) dpToPx(56) else dpToPx(24)
 
         rowsLayout = LinearLayout(context).apply {
             orientation = VERTICAL
@@ -172,7 +172,7 @@ class CustomKeyboardView @JvmOverloads constructor(
 
         androidx.core.view.ViewCompat.setOnApplyWindowInsetsListener(this) { _, windowInsets ->
             val navInsets = windowInsets.getInsets(androidx.core.view.WindowInsetsCompat.Type.navigationBars())
-            val minBottomPad = if (isTablet) dpToPx(32) else dpToPx(16)
+            val minBottomPad = if (isTablet) dpToPx(56) else dpToPx(24)
             val bottomPad = maxOf(navInsets.bottom, minBottomPad)
             rowsLayout.setPadding(dpToPx(4), dpToPx(3), dpToPx(4), bottomPad)
             windowInsets
@@ -456,7 +456,7 @@ class CustomKeyboardView @JvmOverloads constructor(
         val baseRowHeight = if (isTablet) dpToPx(54) else if (isLandscape) dpToPx(42) else dpToPx(48)
         val scaledRowHeight = (baseRowHeight * preferences.heightScale).toInt()
         val rowMarginB = if (isTablet) dpToPx(6) else dpToPx(4)
-        val defaultBottomPad = if (isTablet) dpToPx(32) else dpToPx(16)
+        val defaultBottomPad = if (isTablet) dpToPx(56) else dpToPx(24)
 
         rowsLayout.setPadding(dpToPx(4), dpToPx(3), dpToPx(4), defaultBottomPad)
 

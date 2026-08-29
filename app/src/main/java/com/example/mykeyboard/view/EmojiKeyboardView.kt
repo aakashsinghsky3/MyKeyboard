@@ -82,15 +82,27 @@ class EmojiKeyboardView @JvmOverloads constructor(
             }
         })
 
+        val isTablet = context.resources.configuration.smallestScreenWidthDp >= 600
+        val initialBottomPad = if (isTablet) dpToPx(48) else dpToPx(20)
+
         // 3. Bottom Bar (ABC, Space, Backspace)
         bottomBar = LinearLayout(context).apply {
             orientation = HORIZONTAL
             gravity = Gravity.CENTER_VERTICAL
-            layoutParams = LayoutParams(LayoutParams.MATCH_PARENT, dpToPx(50))
-            setPadding(dpToPx(6), dpToPx(2), dpToPx(6), dpToPx(12))
+            layoutParams = LayoutParams(LayoutParams.MATCH_PARENT, dpToPx(48) + initialBottomPad)
+            setPadding(dpToPx(6), dpToPx(4), dpToPx(6), initialBottomPad)
         }
         setupBottomBar()
         addView(bottomBar)
+
+        androidx.core.view.ViewCompat.setOnApplyWindowInsetsListener(this) { _, windowInsets ->
+            val navInsets = windowInsets.getInsets(androidx.core.view.WindowInsetsCompat.Type.navigationBars())
+            val minBottom = if (isTablet) dpToPx(48) else dpToPx(20)
+            val finalBottom = maxOf(navInsets.bottom, minBottom)
+            bottomBar.layoutParams = LayoutParams(LayoutParams.MATCH_PARENT, dpToPx(48) + finalBottom)
+            bottomBar.setPadding(dpToPx(6), dpToPx(4), dpToPx(6), finalBottom)
+            windowInsets
+        }
 
         setupPagerAdapter()
         buildCategoryTabs()
@@ -299,7 +311,11 @@ class EmojiKeyboardView @JvmOverloads constructor(
             val emoji = getItem(position)
             textView.text = emoji
 
-            if (emoji.length > 2) {
+            val isTextBadge = emoji.contains("Anshika", ignoreCase = true) ||
+                              emoji.contains("Akriti", ignoreCase = true) ||
+                              emoji.any { it in 'a'..'z' || it in 'A'..'Z' || it.code in 0x1D400..0x1D7FF }
+
+            if (isTextBadge) {
                 textView.setSingleLine(true)
                 textView.setTextSize(TypedValue.COMPLEX_UNIT_SP, 10.5f)
                 textView.setTypeface(android.graphics.Typeface.DEFAULT_BOLD)
@@ -309,7 +325,7 @@ class EmojiKeyboardView @JvmOverloads constructor(
                     setColor(theme.keyActionColor)
                 }
                 textView.background = bg
-                val padH = dpToPx(3)
+                val padH = dpToPx(4)
                 textView.setPadding(padH, dpToPx(4), padH, dpToPx(4))
             } else {
                 textView.setSingleLine(false)
