@@ -59,6 +59,8 @@ class CustomKeyboardView @JvmOverloads constructor(
         fun onUndo()
         fun onRedo()
         fun onAddWordToDictionary(word: String)
+        fun onProfessionalRephrase()
+        fun onReplaceText(oldText: String, newText: String)
     }
 
     private var actionListener: KeyboardActionListener? = null
@@ -255,7 +257,10 @@ class CustomKeyboardView @JvmOverloads constructor(
         invalidate()
     }
 
+    private var activeRephraseRawInput: String? = null
+
     fun updatePredictions(prefix: String, previousWords: List<String>) {
+        activeRephraseRawInput = null
         val result = predictionEngine.getSuggestions(prefix, previousWords, preferences.autoCorrectMode)
         currentSuggestionResult = result
 
@@ -286,6 +291,25 @@ class CustomKeyboardView @JvmOverloads constructor(
         // Right Candidate
         candidateRightTv.text = result.right ?: ""
         candidateRightTv.visibility = if (result.right.isNullOrEmpty()) View.INVISIBLE else View.VISIBLE
+    }
+
+    fun showProfessionalSuggestions(rawSentence: String, options: List<String>) {
+        activeRephraseRawInput = rawSentence
+
+        candidateCenterTv.text = options.getOrNull(0) ?: ""
+        candidateCenterTv.setTypeface(Typeface.DEFAULT_BOLD)
+        candidateCenterTv.setTextColor(currentTheme.actionTextColor)
+        val bgCenter = GradientDrawable().apply {
+            cornerRadius = dpToPx(10).toFloat()
+            setColor(currentTheme.keyActionColor)
+        }
+        candidateCenterTv.background = bgCenter
+
+        candidateLeftTv.text = options.getOrNull(1) ?: ""
+        candidateLeftTv.visibility = if (options.getOrNull(1).isNullOrEmpty()) View.INVISIBLE else View.VISIBLE
+
+        candidateRightTv.text = options.getOrNull(2) ?: ""
+        candidateRightTv.visibility = if (options.getOrNull(2).isNullOrEmpty()) View.INVISIBLE else View.VISIBLE
     }
 
     fun setShiftState(state: ShiftState) {
@@ -340,13 +364,25 @@ class CustomKeyboardView @JvmOverloads constructor(
         }
         toolbarActionsLayout.addView(dialpadBtn)
 
-        // 4. 3 Candidate TextViews in CandidatesLayout
+        // 4. Professional Rephrase Button (Briefcase 💼)
+        val professionalBtn = createToolbarIconButton(R.drawable.ic_briefcase) {
+            actionListener?.onProfessionalRephrase()
+        }
+        toolbarActionsLayout.addView(professionalBtn)
+
+        // 5. 3 Candidate TextViews in CandidatesLayout
         candidateLeftTv = createCandidateTextView().apply {
             setOnClickListener {
-                text.toString().takeIf { it.isNotEmpty() }?.let { word ->
+                text.toString().takeIf { it.isNotEmpty() }?.let { candidateText ->
                     performHapticFeedback()
                     performAudioFeedback()
-                    actionListener?.onTextKey("$word ")
+                    val raw = activeRephraseRawInput
+                    if (raw != null) {
+                        actionListener?.onReplaceText(raw, candidateText)
+                        activeRephraseRawInput = null
+                    } else {
+                        actionListener?.onTextKey("$candidateText ")
+                    }
                 }
             }
             setOnLongClickListener {
@@ -358,10 +394,16 @@ class CustomKeyboardView @JvmOverloads constructor(
 
         candidateCenterTv = createCandidateTextView().apply {
             setOnClickListener {
-                text.toString().takeIf { it.isNotEmpty() }?.let { word ->
+                text.toString().takeIf { it.isNotEmpty() }?.let { candidateText ->
                     performHapticFeedback()
                     performAudioFeedback()
-                    actionListener?.onTextKey("$word ")
+                    val raw = activeRephraseRawInput
+                    if (raw != null) {
+                        actionListener?.onReplaceText(raw, candidateText)
+                        activeRephraseRawInput = null
+                    } else {
+                        actionListener?.onTextKey("$candidateText ")
+                    }
                 }
             }
             setOnLongClickListener {
@@ -373,10 +415,16 @@ class CustomKeyboardView @JvmOverloads constructor(
 
         candidateRightTv = createCandidateTextView().apply {
             setOnClickListener {
-                text.toString().takeIf { it.isNotEmpty() }?.let { word ->
+                text.toString().takeIf { it.isNotEmpty() }?.let { candidateText ->
                     performHapticFeedback()
                     performAudioFeedback()
-                    actionListener?.onTextKey("$word ")
+                    val raw = activeRephraseRawInput
+                    if (raw != null) {
+                        actionListener?.onReplaceText(raw, candidateText)
+                        activeRephraseRawInput = null
+                    } else {
+                        actionListener?.onTextKey("$candidateText ")
+                    }
                 }
             }
             setOnLongClickListener {

@@ -12,7 +12,9 @@ import android.view.inputmethod.EditorInfo
 import com.example.mykeyboard.engine.AutoCorrectEngine
 import com.example.mykeyboard.engine.ClipboardHistoryManager
 import com.example.mykeyboard.engine.PredictionEngine
+import com.example.mykeyboard.engine.ProfessionalToneEngine
 import com.example.mykeyboard.engine.UndoRedoManager
+import android.widget.Toast
 import com.example.mykeyboard.model.ShiftState
 import com.example.mykeyboard.utils.KeyboardPreferences
 import com.example.mykeyboard.view.CustomKeyboardView
@@ -223,6 +225,31 @@ class MyKeyboardService : InputMethodService(),
     override fun onAddWordToDictionary(word: String) {
         predictionEngine.addCustomWord(word)
         updatePredictions()
+    }
+
+    override fun onProfessionalRephrase() {
+        val ic = currentInputConnection ?: return
+        val textBefore = ic.getTextBeforeCursor(1000, 0)?.toString() ?: ""
+        val cleanText = textBefore.trim()
+        if (cleanText.isEmpty()) {
+            Toast.makeText(this, "Type a sentence first, then tap 💼 Professional Tone!", Toast.LENGTH_SHORT).show()
+            return
+        }
+
+        val options = ProfessionalToneEngine.getProfessionalRephrasings(cleanText)
+        if (options.isNotEmpty()) {
+            keyboardView?.showProfessionalSuggestions(cleanText, options)
+        }
+    }
+
+    override fun onReplaceText(oldText: String, newText: String) {
+        val ic = currentInputConnection ?: return
+        recordCurrentSnapshot()
+        ic.deleteSurroundingText(oldText.length, 0)
+        ic.commitText(newText, 1)
+        checkAutoCaps()
+        updatePredictions()
+        recordCurrentSnapshot()
     }
 
     // ---------------------------------------------------------------------------------------------
