@@ -104,7 +104,11 @@ class MyKeyboardService : InputMethodService(),
             ic.deleteSurroundingText(lastWord.length, 0)
         }
 
-        ic.commitText(text, 1)
+        // Ensure suggestion clicks always append a spacebar
+        val isSingleChar = text.length == 1
+        val toCommit = if (isSingleChar || text.endsWith(" ")) text else "$text "
+
+        ic.commitText(toCommit, 1)
         checkAutoCaps()
         updatePredictions()
         recordCurrentSnapshot()
@@ -249,7 +253,8 @@ class MyKeyboardService : InputMethodService(),
         val ic = currentInputConnection ?: return
         recordCurrentSnapshot()
         ic.deleteSurroundingText(oldText.length, 0)
-        ic.commitText(newText, 1)
+        val formattedNewText = if (newText.endsWith(" ")) newText else "$newText "
+        ic.commitText(formattedNewText, 1)
         checkAutoCaps()
         updatePredictions()
         recordCurrentSnapshot()
