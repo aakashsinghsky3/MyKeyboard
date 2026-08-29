@@ -18,6 +18,19 @@ android {
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
     }
 
+    signingConfigs {
+        create("release") {
+            storeFile = file("keyboard-release.jks")
+            storePassword = "keyboard123"
+            keyAlias = "keyboard"
+            keyPassword = "keyboard123"
+            enableV1Signing = true
+            enableV2Signing = true
+            enableV3Signing = true
+            enableV4Signing = true
+        }
+    }
+
     flavorDimensions += listOf("environment")
     productFlavors {
         create("dev") {
@@ -36,9 +49,12 @@ android {
         debug {
             isDebuggable = true
             versionNameSuffix = "-debug"
+            signingConfig = signingConfigs.getByName("release")
         }
         release {
-            isMinifyEnabled = false
+            isMinifyEnabled = true
+            isShrinkResources = true
+            signingConfig = signingConfigs.getByName("release")
             proguardFiles(
                 getDefaultProguardFile("proguard-android-optimize.txt"),
                 "proguard-rules.pro"
