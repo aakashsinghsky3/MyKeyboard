@@ -3,9 +3,12 @@ package com.example.mykeyboard.view
 import android.content.Context
 import android.graphics.Color
 import android.graphics.drawable.GradientDrawable
+import android.os.Handler
+import android.os.Looper
 import android.util.AttributeSet
 import android.util.TypedValue
 import android.view.Gravity
+import android.view.MotionEvent
 import android.view.View
 import android.view.ViewGroup
 import android.widget.BaseAdapter
@@ -231,7 +234,7 @@ class EmojiKeyboardView @JvmOverloads constructor(
         }
         bottomBar.addView(spaceBtn)
 
-        // Backspace Key
+        // Backspace Key with Auto-Repeat support
         val delBtn = LinearLayout(context).apply {
             gravity = Gravity.CENTER
             val bg = GradientDrawable().apply {
@@ -248,8 +251,34 @@ class EmojiKeyboardView @JvmOverloads constructor(
             }
             addView(delIcon)
 
-            setOnClickListener {
-                listener?.onBackspace()
+            val handler = Handler(Looper.getMainLooper())
+            var isDelHeld = false
+            val delRepeatRunnable = object : Runnable {
+                override fun run() {
+                    if (isDelHeld) {
+                        listener?.onBackspace()
+                        handler.postDelayed(this, 50)
+                    }
+                }
+            }
+
+            setOnTouchListener { v, event ->
+                when (event.actionMasked) {
+                    MotionEvent.ACTION_DOWN -> {
+                        isDelHeld = true
+                        listener?.onBackspace()
+                        handler.postDelayed(delRepeatRunnable, 350)
+                        v.animate().scaleX(0.92f).scaleY(0.92f).setDuration(50).start()
+                        true
+                    }
+                    MotionEvent.ACTION_UP, MotionEvent.ACTION_CANCEL -> {
+                        isDelHeld = false
+                        handler.removeCallbacks(delRepeatRunnable)
+                        v.animate().scaleX(1.0f).scaleY(1.0f).setDuration(50).start()
+                        true
+                    }
+                    else -> false
+                }
             }
         }
         bottomBar.addView(delBtn)
