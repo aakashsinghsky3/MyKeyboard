@@ -12,19 +12,40 @@ android {
         applicationId = "com.example.mykeyboard"
         minSdk = 24
         targetSdk = 37
-        versionCode = 1
-        versionName = "1.0"
+        versionCode = 2
+        versionName = "1.1"
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
     }
 
-    buildTypes {
-        release {
-            optimization {
-                enable = false
-            }
+    flavorDimensions += listOf("environment")
+    productFlavors {
+        create("dev") {
+            dimension = "environment"
+            applicationIdSuffix = ".dev"
+            versionNameSuffix = "-dev"
+            manifestPlaceholders["appName"] = "MyKeyboard (Dev)"
+        }
+        create("prod") {
+            dimension = "environment"
+            manifestPlaceholders["appName"] = "MyKeyboard"
         }
     }
+
+    buildTypes {
+        debug {
+            isDebuggable = true
+            versionNameSuffix = "-debug"
+        }
+        release {
+            isMinifyEnabled = false
+            proguardFiles(
+                getDefaultProguardFile("proguard-android-optimize.txt"),
+                "proguard-rules.pro"
+            )
+        }
+    }
+
     compileOptions {
         sourceCompatibility = JavaVersion.VERSION_11
         targetCompatibility = JavaVersion.VERSION_11
