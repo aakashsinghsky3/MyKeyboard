@@ -62,9 +62,13 @@ class EmojiKeyboardView @JvmOverloads constructor(
         scrollCategories.addView(categoryBar)
         addView(scrollCategories)
 
-        // 2. Emoji Grid
+        // 2. Emoji Grid (Responsive columns for tablets and foldables)
+        val isTablet = context.resources.configuration.smallestScreenWidthDp >= 600
+        val isLandscape = context.resources.configuration.orientation == android.content.res.Configuration.ORIENTATION_LANDSCAPE
+        val cols = if (isTablet) 14 else if (isLandscape) 12 else 8
+
         emojiGrid = GridView(context).apply {
-            numColumns = 8
+            numColumns = cols
             gravity = Gravity.CENTER
             stretchMode = GridView.STRETCH_COLUMN_WIDTH
             layoutParams = LayoutParams(LayoutParams.MATCH_PARENT, dpToPx(155))

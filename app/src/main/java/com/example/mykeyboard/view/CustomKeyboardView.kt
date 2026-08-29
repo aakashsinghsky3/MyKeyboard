@@ -490,8 +490,14 @@ class CustomKeyboardView @JvmOverloads constructor(
             KeyboardMode.EMOJI -> emptyList()
         }
 
-        val baseRowHeight = dpToPx(48)
+        val isTablet = context.resources.configuration.smallestScreenWidthDp >= 600
+        val isLandscape = context.resources.configuration.orientation == android.content.res.Configuration.ORIENTATION_LANDSCAPE
+        val baseRowHeight = if (isTablet) dpToPx(56) else if (isLandscape) dpToPx(42) else dpToPx(48)
         val scaledRowHeight = (baseRowHeight * preferences.heightScale).toInt()
+
+        // Responsive padding for tablets and landscape orientation
+        val sidePadding = if (isTablet && isLandscape) dpToPx(48) else if (isTablet) dpToPx(24) else dpToPx(3)
+        rowsLayout.setPadding(sidePadding, dpToPx(4), sidePadding, dpToPx(6))
 
         rows.forEach { keyRow ->
             val rowLayout = LinearLayout(context).apply {
