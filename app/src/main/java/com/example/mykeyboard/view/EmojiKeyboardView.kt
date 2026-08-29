@@ -16,6 +16,7 @@ import android.widget.GridView
 import android.widget.HorizontalScrollView
 import android.widget.ImageView
 import android.widget.LinearLayout
+import android.widget.PopupWindow
 import android.widget.TextView
 import androidx.recyclerview.widget.RecyclerView
 import androidx.viewpager2.widget.ViewPager2
@@ -374,8 +375,79 @@ class EmojiKeyboardView @JvmOverloads constructor(
                 onEmojiClick(emoji)
             }
 
+            textView.setOnLongClickListener { view ->
+                val variants = com.example.mykeyboard.utils.EmojiVariantsHelper.getVariants(emoji)
+                if (variants.size > 1) {
+                    showVariantsPopup(view, variants)
+                    true
+                } else {
+                    false
+                }
+            }
+
             return textView
         }
+    }
+
+    private var variantsPopupWindow: PopupWindow? = null
+
+    private fun showVariantsPopup(anchorView: View, variants: List<String>) {
+        dismissVariantsPopup()
+
+        val ctx = anchorView.context
+        val container = LinearLayout(ctx).apply {
+            orientation = HORIZONTAL
+            gravity = Gravity.CENTER_VERTICAL
+            val bg = GradientDrawable().apply {
+                cornerRadius = dpToPx(12).toFloat()
+                setColor(currentTheme.keySpecialColor)
+                setStroke(dpToPx(1), currentTheme.textColorSecondary)
+            }
+            background = bg
+            setPadding(dpToPx(6), dpToPx(4), dpToPx(6), dpToPx(4))
+        }
+
+        val scroll = HorizontalScrollView(ctx).apply {
+            isHorizontalScrollBarEnabled = false
+            addView(container)
+        }
+
+        variants.forEach { variantEmoji ->
+            val tv = TextView(ctx).apply {
+                text = variantEmoji
+                textSize = 22f
+                gravity = Gravity.CENTER
+                val pad = dpToPx(6)
+                setPadding(pad, pad, pad, pad)
+                setOnClickListener {
+                    dismissVariantsPopup()
+                    listener?.onEmojiSelected(variantEmoji)
+                }
+            }
+            container.addView(tv)
+        }
+
+        variantsPopupWindow = PopupWindow(scroll, LayoutParams.WRAP_CONTENT, LayoutParams.WRAP_CONTENT, true).apply {
+            isOutsideTouchable = true
+            elevation = dpToPx(8).toFloat()
+        }
+
+        anchorView.post {
+            val location = IntArray(2)
+            anchorView.getLocationOnScreen(location)
+            val popupX = location[0] - dpToPx(10)
+            val popupY = location[1] - dpToPx(50)
+            try {
+                variantsPopupWindow?.showAtLocation(anchorView, Gravity.NO_GRAVITY, popupX, popupY)
+            } catch (_: Exception) {}
+        }
+    }
+
+    private fun dismissVariantsPopup() {
+        try {
+            variantsPopupWindow?.dismiss()
+        } catch (_: Exception) {}
+        variantsPopupWindow = null
     }
 
     private fun getNavigationBarHeight(): Int {
