@@ -202,45 +202,45 @@ object KeyLayoutHelper {
     fun getDialpadRows(): List<List<KeyModel>> {
         val rows = mutableListOf<List<KeyModel>>()
 
-        // Row 1: 1, 2 (ABC), 3 (DEF)
+        // Row 1: 1, 2, 3
         rows.add(
             listOf(
                 KeyModel(primaryText = "", type = KeyType.SPACER, weight = 1.0f),
                 KeyModel(primaryText = "1", altText = "", popupChars = listOf("¹"), weight = 2.0f),
-                KeyModel(primaryText = "2", altText = "ABC", popupChars = listOf("²"), weight = 2.0f),
-                KeyModel(primaryText = "3", altText = "DEF", popupChars = listOf("³"), weight = 2.0f),
+                KeyModel(primaryText = "2", altText = "", popupChars = listOf("²"), weight = 2.0f),
+                KeyModel(primaryText = "3", altText = "", popupChars = listOf("³"), weight = 2.0f),
                 KeyModel(primaryText = "", type = KeyType.SPACER, weight = 1.0f)
             )
         )
 
-        // Row 2: 4 (GHI), 5 (JKL), 6 (MNO)
+        // Row 2: 4, 5, 6
         rows.add(
             listOf(
                 KeyModel(primaryText = "", type = KeyType.SPACER, weight = 1.0f),
-                KeyModel(primaryText = "4", altText = "GHI", popupChars = listOf("⁴"), weight = 2.0f),
-                KeyModel(primaryText = "5", altText = "JKL", popupChars = listOf("⁵"), weight = 2.0f),
-                KeyModel(primaryText = "6", altText = "MNO", popupChars = listOf("⁶"), weight = 2.0f),
+                KeyModel(primaryText = "4", altText = "", popupChars = listOf("⁴"), weight = 2.0f),
+                KeyModel(primaryText = "5", altText = "", popupChars = listOf("⁵"), weight = 2.0f),
+                KeyModel(primaryText = "6", altText = "", popupChars = listOf("⁶"), weight = 2.0f),
                 KeyModel(primaryText = "", type = KeyType.SPACER, weight = 1.0f)
             )
         )
 
-        // Row 3: 7 (PQRS), 8 (TUV), 9 (WXYZ)
+        // Row 3: 7, 8, 9
         rows.add(
             listOf(
                 KeyModel(primaryText = "", type = KeyType.SPACER, weight = 1.0f),
-                KeyModel(primaryText = "7", altText = "PQRS", popupChars = listOf("⁷"), weight = 2.0f),
-                KeyModel(primaryText = "8", altText = "TUV", popupChars = listOf("⁸"), weight = 2.0f),
-                KeyModel(primaryText = "9", altText = "WXYZ", popupChars = listOf("⁹"), weight = 2.0f),
+                KeyModel(primaryText = "7", altText = "", popupChars = listOf("⁷"), weight = 2.0f),
+                KeyModel(primaryText = "8", altText = "", popupChars = listOf("⁸"), weight = 2.0f),
+                KeyModel(primaryText = "9", altText = "", popupChars = listOf("⁹"), weight = 2.0f),
                 KeyModel(primaryText = "", type = KeyType.SPACER, weight = 1.0f)
             )
         )
 
-        // Row 4: *, 0 (+), #
+        // Row 4: *, 0, #
         rows.add(
             listOf(
                 KeyModel(primaryText = "", type = KeyType.SPACER, weight = 1.0f),
                 KeyModel(primaryText = "*", altText = "", weight = 2.0f),
-                KeyModel(primaryText = "0", altText = "+", popupChars = listOf("+"), weight = 2.0f),
+                KeyModel(primaryText = "0", altText = "", popupChars = listOf("+"), weight = 2.0f),
                 KeyModel(primaryText = "#", altText = "", weight = 2.0f),
                 KeyModel(primaryText = "", type = KeyType.SPACER, weight = 1.0f)
             )
