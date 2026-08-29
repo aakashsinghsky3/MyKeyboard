@@ -36,19 +36,23 @@ class ClipboardView @JvmOverloads constructor(
     private val itemsContainer: LinearLayout
     private val scrollView: ScrollView
 
+    private var fixedTargetContentHeight: Int? = null
+
     init {
         val initialBottomPad = getCalculatedBottomPadding()
         orientation = VERTICAL
+        val initialHeight = (fixedTargetContentHeight ?: dpToPx(200)) + initialBottomPad
         layoutParams = android.view.ViewGroup.LayoutParams(
             android.view.ViewGroup.LayoutParams.MATCH_PARENT,
-            dpToPx(245) + initialBottomPad
+            initialHeight
         )
         setPadding(dpToPx(8), dpToPx(6), dpToPx(8), initialBottomPad)
 
         androidx.core.view.ViewCompat.setOnApplyWindowInsetsListener(this) { _, windowInsets ->
             val navInsets = windowInsets.getInsets(androidx.core.view.WindowInsetsCompat.Type.navigationBars())
             val finalBottom = maxOf(navInsets.bottom, getCalculatedBottomPadding())
-            val h = dpToPx(245) + finalBottom
+            val targetH = fixedTargetContentHeight ?: dpToPx(200)
+            val h = targetH + finalBottom
             val lp = layoutParams
             if (lp != null) {
                 lp.height = h
@@ -94,6 +98,7 @@ class ClipboardView @JvmOverloads constructor(
     }
 
     fun updateFixedContentHeight(targetContentHeight: Int) {
+        this.fixedTargetContentHeight = targetContentHeight
         val finalBottom = getCalculatedBottomPadding()
         val totalH = targetContentHeight + finalBottom
         val lp = layoutParams ?: android.view.ViewGroup.LayoutParams(
