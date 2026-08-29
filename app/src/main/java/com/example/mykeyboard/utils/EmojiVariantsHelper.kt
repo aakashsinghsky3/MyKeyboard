@@ -4,6 +4,18 @@ object EmojiVariantsHelper {
 
     val SKIN_TONES = listOf("🏻", "🏼", "🏽", "🏾", "🏿")
 
+    private val HUMAN_GESTURES_AND_PEOPLE = setOf(
+        "👋", "🤚", "🖐️", "✋", "🖖", "🫱", "🫲", "🫳", "🫴", "👌",
+        "🤌", "🤏", "✌️", "🤞", "🫰", "🤟", "🤘", "🤙", "👈", "👉",
+        "👆", "🖕", "👇", "☝️", "🫵", "👍", "👎", "✊", "👊", "🤛",
+        "🤜", "👏", "🙌", "🫶", "👐", "🤲", "🤝", "🙏", "✍️", "💅",
+        "🤳", "💪", "🦵", "🦶", "👂", "🦻", "👃", "👶", "🧒", "👦",
+        "👧", "🧑", "👱", "👨", "👩", "🧓", "👴", "👵", "🚶", "🏃",
+        "🕺", "💃", "🕴️", "🧘", "🏄", "🏊", "🏋️", "🚴", "👮", "🕵️",
+        "💂", "🥷", "👷", "🤴", "👸", "👳", "👲", "🧕", "🤵", "👰",
+        "🤱", "👼", "🦸", "🦹", "🧙", "🧚", "🧛", "🧜", "🧝"
+    )
+
     private val GENDER_PERSONS = mapOf(
         "👮" to Pair("👮‍♀️", "👮‍♂️"),
         "🏃" to Pair("🏃‍♀️", "🏃‍♂️"),
@@ -36,14 +48,13 @@ object EmojiVariantsHelper {
     fun getVariants(emoji: String): List<String> {
         val list = mutableListOf<String>()
 
-        // Strip any existing skin tone
+        // Strip existing skin tone modifiers
         val base = emoji.replace(Regex("[\uD83C\uDFFB-\uD83C\uDFFF]"), "")
 
-        // Check if genderable
-        val pair = GENDER_PERSONS[base]
-        if (pair != null) {
-            val female = pair.first
-            val male = pair.second
+        val genderPair = GENDER_PERSONS[base]
+        if (genderPair != null) {
+            val female = genderPair.first
+            val male = genderPair.second
 
             list.add(female)
             SKIN_TONES.forEach { tone -> list.add(applyTone(female, tone)) }
@@ -53,9 +64,12 @@ object EmojiVariantsHelper {
 
             list.add(base)
             SKIN_TONES.forEach { tone -> list.add(applyTone(base, tone)) }
-        } else {
+        } else if (HUMAN_GESTURES_AND_PEOPLE.contains(base)) {
             list.add(base)
             SKIN_TONES.forEach { tone -> list.add(applyTone(base, tone)) }
+        } else {
+            // Non-human emojis (smileys, hearts, objects, flags, food) do NOT get skin tones!
+            return emptyList()
         }
 
         return list.distinct()

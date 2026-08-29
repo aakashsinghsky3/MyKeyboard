@@ -427,8 +427,10 @@ class EmojiKeyboardView @JvmOverloads constructor(
             container.addView(tv)
         }
 
-        variantsPopupWindow = PopupWindow(scroll, LayoutParams.WRAP_CONTENT, LayoutParams.WRAP_CONTENT, true).apply {
+        variantsPopupWindow = PopupWindow(scroll, LayoutParams.WRAP_CONTENT, LayoutParams.WRAP_CONTENT, false).apply {
             isOutsideTouchable = true
+            isTouchable = true
+            isFocusable = false
             elevation = dpToPx(8).toFloat()
         }
 
