@@ -52,7 +52,6 @@ class MainActivity : AppCompatActivity() {
     private lateinit var btnAutocorrectAggressive: TextView
 
     // Preferences Switches
-    private lateinit var switchVoice: MaterialSwitch
     private lateinit var switchClipboard: MaterialSwitch
     private lateinit var switchNumberRow: MaterialSwitch
     private lateinit var switchKeyPopup: MaterialSwitch
@@ -126,7 +125,6 @@ class MainActivity : AppCompatActivity() {
         btnAutocorrectConservative = findViewById(R.id.btn_autocorrect_conservative)
         btnAutocorrectAggressive = findViewById(R.id.btn_autocorrect_aggressive)
 
-        switchVoice = findViewById(R.id.switch_voice)
         switchClipboard = findViewById(R.id.switch_clipboard)
         switchNumberRow = findViewById(R.id.switch_number_row)
         switchKeyPopup = findViewById(R.id.switch_key_popup)
@@ -393,11 +391,6 @@ class MainActivity : AppCompatActivity() {
     }
 
     private fun setupPreferences() {
-        switchVoice.isChecked = preferences.isVoiceTypingEnabled
-        switchVoice.setOnCheckedChangeListener { _, isChecked ->
-            preferences.isVoiceTypingEnabled = isChecked
-        }
-
         switchClipboard.isChecked = preferences.isClipboardHistoryEnabled
         switchClipboard.setOnCheckedChangeListener { _, isChecked ->
             preferences.isClipboardHistoryEnabled = isChecked

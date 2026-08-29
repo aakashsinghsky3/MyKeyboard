@@ -304,8 +304,7 @@ class MyKeyboardService : InputMethodService(),
             KeyboardPreferences.KEY_NUMBER_ROW,
             KeyboardPreferences.KEY_HEIGHT_SCALE,
             KeyboardPreferences.KEY_CUSTOM_BG_PATH,
-            KeyboardPreferences.KEY_CUSTOM_BG_OPACITY,
-            KeyboardPreferences.KEY_VOICE_TYPING -> {
+            KeyboardPreferences.KEY_CUSTOM_BG_OPACITY -> {
                 keyboardView?.applyTheme(preferences.theme)
             }
         }

@@ -64,10 +64,6 @@ class KeyboardPreferences(context: Context) {
         get() = prefs.getFloat(KEY_CUSTOM_BG_OPACITY, 0.70f)
         set(value) = prefs.edit().putFloat(KEY_CUSTOM_BG_OPACITY, value).apply()
 
-    var isVoiceTypingEnabled: Boolean
-        get() = prefs.getBoolean(KEY_VOICE_TYPING, true)
-        set(value) = prefs.edit().putBoolean(KEY_VOICE_TYPING, value).apply()
-
     var isClipboardHistoryEnabled: Boolean
         get() = prefs.getBoolean(KEY_CLIPBOARD_HISTORY, true)
         set(value) = prefs.edit().putBoolean(KEY_CLIPBOARD_HISTORY, value).apply()
@@ -93,7 +89,6 @@ class KeyboardPreferences(context: Context) {
         const val KEY_AUTO_CORRECT_MODE = "pref_auto_correct_mode"
         const val KEY_CUSTOM_BG_PATH = "pref_custom_bg_path"
         const val KEY_CUSTOM_BG_OPACITY = "pref_custom_bg_opacity"
-        const val KEY_VOICE_TYPING = "pref_voice_typing"
         const val KEY_CLIPBOARD_HISTORY = "pref_clipboard_history"
     }
 }

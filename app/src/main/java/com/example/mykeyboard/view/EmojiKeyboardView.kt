@@ -14,7 +14,8 @@ import android.widget.HorizontalScrollView
 import android.widget.ImageView
 import android.widget.LinearLayout
 import android.widget.TextView
-import androidx.core.content.ContextCompat
+import androidx.recyclerview.widget.RecyclerView
+import androidx.viewpager2.widget.ViewPager2
 import com.example.mykeyboard.R
 import com.example.mykeyboard.model.EmojiCategory
 import com.example.mykeyboard.model.EmojiData
@@ -37,10 +38,11 @@ class EmojiKeyboardView @JvmOverloads constructor(
     private var currentTheme: KeyboardTheme = KeyboardTheme.MATERIAL_DARK
     private var selectedCategoryIndex = 0
 
+    private val scrollCategories: HorizontalScrollView
     private val categoryBar: LinearLayout
-    private val emojiGrid: GridView
+    private val viewPager: ViewPager2
     private val bottomBar: LinearLayout
-    private val emojiAdapter: EmojiAdapter
+    private var pagerAdapter: EmojiPagerAdapter? = null
 
     init {
         orientation = VERTICAL
@@ -49,8 +51,8 @@ class EmojiKeyboardView @JvmOverloads constructor(
         setPadding(0, 0, 0, dpToPx(6))
 
         // 1. Category Bar
-        val scrollCategories = HorizontalScrollView(context).apply {
-            layoutParams = LayoutParams(LayoutParams.MATCH_PARENT, dpToPx(38))
+        scrollCategories = HorizontalScrollView(context).apply {
+            layoutParams = LayoutParams(LayoutParams.MATCH_PARENT, dpToPx(40))
             isHorizontalScrollBarEnabled = false
         }
         categoryBar = LinearLayout(context).apply {
@@ -62,40 +64,56 @@ class EmojiKeyboardView @JvmOverloads constructor(
         scrollCategories.addView(categoryBar)
         addView(scrollCategories)
 
-        // 2. Emoji Grid (Responsive columns for tablets and foldables)
-        val isTablet = context.resources.configuration.smallestScreenWidthDp >= 600
-        val isLandscape = context.resources.configuration.orientation == android.content.res.Configuration.ORIENTATION_LANDSCAPE
-        val cols = if (isTablet) 14 else if (isLandscape) 12 else 8
-
-        emojiGrid = GridView(context).apply {
-            numColumns = cols
-            gravity = Gravity.CENTER
-            stretchMode = GridView.STRETCH_COLUMN_WIDTH
-            layoutParams = LayoutParams(LayoutParams.MATCH_PARENT, dpToPx(155))
-            setPadding(dpToPx(4), dpToPx(2), dpToPx(4), dpToPx(2))
-            verticalSpacing = dpToPx(2)
-            horizontalSpacing = dpToPx(2)
+        // 2. Swipeable Emoji ViewPager2
+        viewPager = ViewPager2(context).apply {
+            layoutParams = LayoutParams(LayoutParams.MATCH_PARENT, dpToPx(165))
+            orientation = ViewPager2.ORIENTATION_HORIZONTAL
         }
-        emojiAdapter = EmojiAdapter()
-        emojiGrid.adapter = emojiAdapter
-        addView(emojiGrid)
+        addView(viewPager)
+
+        viewPager.registerOnPageChangeCallback(object : ViewPager2.OnPageChangeCallback() {
+            override fun onPageSelected(position: Int) {
+                selectedCategoryIndex = position
+                buildCategoryTabs()
+                val tab = categoryBar.getChildAt(position)
+                if (tab != null) {
+                    scrollCategories.smoothScrollTo(tab.left - dpToPx(40), 0)
+                }
+            }
+        })
 
         // 3. Bottom Bar (ABC, Space, Backspace)
         bottomBar = LinearLayout(context).apply {
             orientation = HORIZONTAL
             gravity = Gravity.CENTER_VERTICAL
             layoutParams = LayoutParams(LayoutParams.MATCH_PARENT, dpToPx(50))
-            setPadding(dpToPx(6), dpToPx(2), dpToPx(6), dpToPx(10))
+            setPadding(dpToPx(6), dpToPx(2), dpToPx(6), dpToPx(12))
         }
         setupBottomBar()
         addView(bottomBar)
 
+        setupPagerAdapter()
         buildCategoryTabs()
         applyTheme(currentTheme)
     }
 
     fun setEmojiListener(listener: EmojiListener) {
         this.listener = listener
+    }
+
+    private fun setupPagerAdapter() {
+        val isTablet = context.resources.configuration.smallestScreenWidthDp >= 600
+        val isLandscape = context.resources.configuration.orientation == android.content.res.Configuration.ORIENTATION_LANDSCAPE
+        pagerAdapter = EmojiPagerAdapter(
+            categories = EmojiData.categories,
+            theme = currentTheme,
+            isTablet = isTablet,
+            isLandscape = isLandscape,
+            onEmojiClick = { emoji ->
+                listener?.onEmojiSelected(emoji)
+            }
+        )
+        viewPager.adapter = pagerAdapter
     }
 
     fun applyTheme(theme: KeyboardTheme) {
@@ -108,7 +126,8 @@ class EmojiKeyboardView @JvmOverloads constructor(
         bottomBar.setBackgroundColor(theme.backgroundColor)
         setupBottomBar()
 
-        emojiAdapter.notifyDataSetChanged()
+        setupPagerAdapter()
+        viewPager.setCurrentItem(selectedCategoryIndex, false)
     }
 
     private fun buildCategoryTabs() {
@@ -143,9 +162,8 @@ class EmojiKeyboardView @JvmOverloads constructor(
 
                 setOnClickListener {
                     selectedCategoryIndex = index
+                    viewPager.setCurrentItem(index, true)
                     buildCategoryTabs()
-                    emojiAdapter.updateCategory(EmojiData.categories[index])
-                    emojiGrid.smoothScrollToPosition(0)
                 }
             }
 
@@ -220,17 +238,50 @@ class EmojiKeyboardView @JvmOverloads constructor(
         bottomBar.addView(delBtn)
     }
 
-    private inner class EmojiAdapter : BaseAdapter() {
-        private var currentCategory: EmojiCategory = EmojiData.categories[0]
+    private inner class EmojiPagerAdapter(
+        private val categories: List<EmojiCategory>,
+        private val theme: KeyboardTheme,
+        private val isTablet: Boolean,
+        private val isLandscape: Boolean,
+        private val onEmojiClick: (String) -> Unit
+    ) : RecyclerView.Adapter<EmojiPagerAdapter.PageViewHolder>() {
 
-        fun updateCategory(category: EmojiCategory) {
-            currentCategory = category
-            notifyDataSetChanged()
+        inner class PageViewHolder(val gridView: GridView) : RecyclerView.ViewHolder(gridView)
+
+        override fun onCreateViewHolder(parent: ViewGroup, viewType: Int): PageViewHolder {
+            val cols = if (isTablet) 14 else if (isLandscape) 12 else 8
+            val grid = GridView(parent.context).apply {
+                numColumns = cols
+                gravity = Gravity.CENTER
+                stretchMode = GridView.STRETCH_COLUMN_WIDTH
+                layoutParams = ViewGroup.LayoutParams(
+                    ViewGroup.LayoutParams.MATCH_PARENT,
+                    ViewGroup.LayoutParams.MATCH_PARENT
+                )
+                setPadding(dpToPx(4), dpToPx(2), dpToPx(4), dpToPx(2))
+                verticalSpacing = dpToPx(2)
+                horizontalSpacing = dpToPx(2)
+            }
+            return PageViewHolder(grid)
         }
 
-        override fun getCount(): Int = currentCategory.emojis.size
+        override fun onBindViewHolder(holder: PageViewHolder, position: Int) {
+            val category = categories[position]
+            holder.gridView.adapter = EmojiCategoryAdapter(category.emojis, theme, onEmojiClick)
+        }
 
-        override fun getItem(position: Int): String = currentCategory.emojis[position]
+        override fun getItemCount(): Int = categories.size
+    }
+
+    private inner class EmojiCategoryAdapter(
+        private val emojis: List<String>,
+        private val theme: KeyboardTheme,
+        private val onEmojiClick: (String) -> Unit
+    ) : BaseAdapter() {
+
+        override fun getCount(): Int = emojis.size
+
+        override fun getItem(position: Int): String = emojis[position]
 
         override fun getItemId(position: Int): Long = position.toLong()
 
@@ -252,25 +303,25 @@ class EmojiKeyboardView @JvmOverloads constructor(
                 textView.setSingleLine(true)
                 textView.setTextSize(TypedValue.COMPLEX_UNIT_SP, 10.5f)
                 textView.setTypeface(android.graphics.Typeface.DEFAULT_BOLD)
-                textView.setTextColor(currentTheme.actionTextColor)
+                textView.setTextColor(theme.actionTextColor)
                 val bg = GradientDrawable().apply {
                     cornerRadius = dpToPx(8).toFloat()
-                    setColor(currentTheme.keyActionColor)
+                    setColor(theme.keyActionColor)
                 }
                 textView.background = bg
-                val padH = dpToPx(2)
+                val padH = dpToPx(3)
                 textView.setPadding(padH, dpToPx(4), padH, dpToPx(4))
             } else {
                 textView.setSingleLine(false)
                 textView.setTextSize(TypedValue.COMPLEX_UNIT_SP, 22f)
                 textView.setTypeface(android.graphics.Typeface.DEFAULT)
-                textView.setTextColor(currentTheme.textColorPrimary)
+                textView.setTextColor(theme.textColorPrimary)
                 textView.background = null
                 textView.setPadding(0, dpToPx(2), 0, dpToPx(2))
             }
 
             textView.setOnClickListener {
-                listener?.onEmojiSelected(emoji)
+                onEmojiClick(emoji)
             }
 
             return textView

@@ -31,7 +31,6 @@ import android.widget.Toast
 import com.example.mykeyboard.R
 import com.example.mykeyboard.engine.PredictionEngine
 import com.example.mykeyboard.engine.SuggestionResult
-import com.example.mykeyboard.engine.VoiceTypingHelper
 import com.example.mykeyboard.model.KeyLayoutHelper
 import com.example.mykeyboard.model.KeyModel
 import com.example.mykeyboard.model.KeyType
@@ -86,12 +85,9 @@ class CustomKeyboardView @JvmOverloads constructor(
     private lateinit var candidateLeftTv: TextView
     private lateinit var candidateCenterTv: TextView
     private lateinit var candidateRightTv: TextView
-    private lateinit var micIcon: ImageView
-    private var isVoiceListening = false
 
-    // Prediction Engine & Voice Helper
+    // Prediction Engine
     private val predictionEngine = PredictionEngine(context)
-    private val voiceTypingHelper = VoiceTypingHelper(context)
     private var currentSuggestionResult: SuggestionResult? = null
 
     // Popup window for key preview & accents
@@ -161,18 +157,29 @@ class CustomKeyboardView @JvmOverloads constructor(
         keyboardContainer = FrameLayout(context).apply {
             layoutParams = LayoutParams(LayoutParams.MATCH_PARENT, LayoutParams.WRAP_CONTENT)
         }
+
+        val isTablet = context.resources.configuration.smallestScreenWidthDp >= 600
+        val initialBottomPad = if (isTablet) dpToPx(32) else dpToPx(16)
+
         rowsLayout = LinearLayout(context).apply {
             orientation = VERTICAL
             gravity = Gravity.CENTER_HORIZONTAL
             layoutParams = FrameLayout.LayoutParams(FrameLayout.LayoutParams.MATCH_PARENT, FrameLayout.LayoutParams.WRAP_CONTENT)
-            setPadding(dpToPx(3), dpToPx(3), dpToPx(3), dpToPx(12))
+            setPadding(dpToPx(4), dpToPx(3), dpToPx(4), initialBottomPad)
         }
         keyboardContainer.addView(rowsLayout)
         addView(keyboardContainer)
 
+        androidx.core.view.ViewCompat.setOnApplyWindowInsetsListener(this) { _, windowInsets ->
+            val navInsets = windowInsets.getInsets(androidx.core.view.WindowInsetsCompat.Type.navigationBars())
+            val minBottomPad = if (isTablet) dpToPx(32) else dpToPx(16)
+            val bottomPad = maxOf(navInsets.bottom, minBottomPad)
+            rowsLayout.setPadding(dpToPx(4), dpToPx(3), dpToPx(4), bottomPad)
+            windowInsets
+        }
+
         initKeyPopup()
         initAccentsPopup()
-        setupVoiceTyping()
         setupToolbarAndCandidates()
         applyBackgroundAndTheme()
         renderKeyboardLayout()
@@ -336,15 +343,7 @@ class CustomKeyboardView @JvmOverloads constructor(
         }
         toolbarActionsLayout.addView(clipBtn)
 
-        // 4. Voice Mic Button
-        if (preferences.isVoiceTypingEnabled) {
-            micIcon = createToolbarIconButton(if (isVoiceListening) R.drawable.ic_mic_active else R.drawable.ic_mic) {
-                toggleVoiceTyping()
-            } as ImageView
-            toolbarActionsLayout.addView(micIcon)
-        }
-
-        // 5. 3 Candidate TextViews in CandidatesLayout
+        // 4. 3 Candidate TextViews in CandidatesLayout
         candidateLeftTv = createCandidateTextView().apply {
             setOnClickListener {
                 text.toString().takeIf { it.isNotEmpty() }?.let { word ->
@@ -440,44 +439,6 @@ class CustomKeyboardView @JvmOverloads constructor(
     }
 
     // ---------------------------------------------------------------------------------------------
-    // Voice Typing Setup
-    // ---------------------------------------------------------------------------------------------
-    private fun setupVoiceTyping() {
-        voiceTypingHelper.setListener(object : VoiceTypingHelper.VoiceListener {
-            override fun onListeningStarted() {
-                isVoiceListening = true
-                micIcon.setImageResource(R.drawable.ic_mic_active)
-                candidateCenterTv.text = "🎙️ Listening..."
-            }
-
-            override fun onSpeechResult(text: String) {
-                if (text.isNotEmpty()) {
-                    actionListener?.onTextKey("$text ")
-                }
-            }
-
-            override fun onSpeechError(errorMessage: String) {
-                isVoiceListening = false
-                micIcon.setImageResource(R.drawable.ic_mic)
-                Toast.makeText(context, errorMessage, Toast.LENGTH_SHORT).show()
-            }
-
-            override fun onListeningEnded() {
-                isVoiceListening = false
-                micIcon.setImageResource(R.drawable.ic_mic)
-            }
-        })
-    }
-
-    private fun toggleVoiceTyping() {
-        if (isVoiceListening) {
-            voiceTypingHelper.stopListening()
-        } else {
-            voiceTypingHelper.startListening()
-        }
-    }
-
-    // ---------------------------------------------------------------------------------------------
     // Keyboard Layout Rendering
     // ---------------------------------------------------------------------------------------------
     private fun renderKeyboardLayout() {
@@ -494,16 +455,17 @@ class CustomKeyboardView @JvmOverloads constructor(
         val isLandscape = context.resources.configuration.orientation == android.content.res.Configuration.ORIENTATION_LANDSCAPE
         val baseRowHeight = if (isTablet) dpToPx(54) else if (isLandscape) dpToPx(42) else dpToPx(48)
         val scaledRowHeight = (baseRowHeight * preferences.heightScale).toInt()
+        val rowMarginB = if (isTablet) dpToPx(6) else dpToPx(4)
+        val defaultBottomPad = if (isTablet) dpToPx(32) else dpToPx(16)
 
-        // Edge-to-edge layout with bottom safety padding to avoid navigation button overlap
-        rowsLayout.setPadding(dpToPx(3), dpToPx(2), dpToPx(3), dpToPx(12))
+        rowsLayout.setPadding(dpToPx(4), dpToPx(3), dpToPx(4), defaultBottomPad)
 
         rows.forEach { keyRow ->
             val rowLayout = LinearLayout(context).apply {
                 orientation = HORIZONTAL
                 gravity = Gravity.CENTER
                 layoutParams = LayoutParams(LayoutParams.MATCH_PARENT, scaledRowHeight).apply {
-                    bottomMargin = dpToPx(4)
+                    bottomMargin = rowMarginB
                 }
             }
 
@@ -517,15 +479,17 @@ class CustomKeyboardView @JvmOverloads constructor(
     }
 
     private fun createKeyView(key: KeyModel): View {
+        val isTablet = context.resources.configuration.smallestScreenWidthDp >= 600
+        val keyMarginH = if (isTablet) dpToPx(4) else dpToPx(3)
         val keyLayout = FrameLayout(context).apply {
             layoutParams = LayoutParams(0, LayoutParams.MATCH_PARENT, key.weight).apply {
-                marginStart = dpToPx(2)
-                marginEnd = dpToPx(2)
+                marginStart = keyMarginH
+                marginEnd = keyMarginH
             }
         }
 
         val bgDrawable = GradientDrawable().apply {
-            cornerRadius = dpToPx(7).toFloat()
+            cornerRadius = if (isTablet) dpToPx(9).toFloat() else dpToPx(7).toFloat()
             val color = when (key.type) {
                 KeyType.ENTER -> currentTheme.keyActionColor
                 KeyType.SPACE -> currentTheme.keySpaceColor
