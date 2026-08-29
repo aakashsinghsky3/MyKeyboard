@@ -84,8 +84,8 @@ class EmojiKeyboardView @JvmOverloads constructor(
         bottomBar = LinearLayout(context).apply {
             orientation = HORIZONTAL
             gravity = Gravity.CENTER_VERTICAL
-            layoutParams = LayoutParams(LayoutParams.MATCH_PARENT, dpToPx(42))
-            setPadding(dpToPx(8), dpToPx(2), dpToPx(8), dpToPx(2))
+            layoutParams = LayoutParams(LayoutParams.MATCH_PARENT, dpToPx(50))
+            setPadding(dpToPx(6), dpToPx(2), dpToPx(6), dpToPx(10))
         }
         setupBottomBar()
         addView(bottomBar)

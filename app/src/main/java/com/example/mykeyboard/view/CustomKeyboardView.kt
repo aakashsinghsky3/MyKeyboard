@@ -165,7 +165,7 @@ class CustomKeyboardView @JvmOverloads constructor(
             orientation = VERTICAL
             gravity = Gravity.CENTER_HORIZONTAL
             layoutParams = FrameLayout.LayoutParams(FrameLayout.LayoutParams.MATCH_PARENT, FrameLayout.LayoutParams.WRAP_CONTENT)
-            setPadding(dpToPx(3), dpToPx(4), dpToPx(3), dpToPx(6))
+            setPadding(dpToPx(3), dpToPx(3), dpToPx(3), dpToPx(12))
         }
         keyboardContainer.addView(rowsLayout)
         addView(keyboardContainer)
@@ -492,12 +492,11 @@ class CustomKeyboardView @JvmOverloads constructor(
 
         val isTablet = context.resources.configuration.smallestScreenWidthDp >= 600
         val isLandscape = context.resources.configuration.orientation == android.content.res.Configuration.ORIENTATION_LANDSCAPE
-        val baseRowHeight = if (isTablet) dpToPx(56) else if (isLandscape) dpToPx(42) else dpToPx(48)
+        val baseRowHeight = if (isTablet) dpToPx(54) else if (isLandscape) dpToPx(42) else dpToPx(48)
         val scaledRowHeight = (baseRowHeight * preferences.heightScale).toInt()
 
-        // Responsive padding for tablets and landscape orientation
-        val sidePadding = if (isTablet && isLandscape) dpToPx(48) else if (isTablet) dpToPx(24) else dpToPx(3)
-        rowsLayout.setPadding(sidePadding, dpToPx(4), sidePadding, dpToPx(6))
+        // Edge-to-edge layout with bottom safety padding to avoid navigation button overlap
+        rowsLayout.setPadding(dpToPx(3), dpToPx(2), dpToPx(3), dpToPx(12))
 
         rows.forEach { keyRow ->
             val rowLayout = LinearLayout(context).apply {
