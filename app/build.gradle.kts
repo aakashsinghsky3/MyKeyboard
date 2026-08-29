@@ -24,11 +24,11 @@ android {
             dimension = "environment"
             applicationIdSuffix = ".dev"
             versionNameSuffix = "-dev"
-            manifestPlaceholders["appName"] = "MyKeyboard (Dev)"
+            manifestPlaceholders["appName"] = "Keyboard (Dev)"
         }
         create("prod") {
             dimension = "environment"
-            manifestPlaceholders["appName"] = "MyKeyboard"
+            manifestPlaceholders["appName"] = "Keyboard"
         }
     }
 
