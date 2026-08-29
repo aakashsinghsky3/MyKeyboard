@@ -450,29 +450,32 @@ class CustomKeyboardView @JvmOverloads constructor(
         }
 
         val isTablet = context.resources.configuration.smallestScreenWidthDp >= 600
-        val isLandscape = context.resources.configuration.orientation == android.content.res.Configuration.ORIENTATION_LANDSCAPE
-        val baseRowHeight = if (isTablet) dpToPx(54) else if (isLandscape) dpToPx(42) else dpToPx(48)
-        val scaledRowHeight = (baseRowHeight * preferences.heightScale).toInt()
         val rowMarginB = if (isTablet) dpToPx(6) else dpToPx(4)
         val defaultBottomPad = getCalculatedBottomPadding()
+        val targetContentHeight = getStandardContentHeight()
 
         rowsLayout.setPadding(dpToPx(4), dpToPx(3), dpToPx(4), defaultBottomPad)
 
-        rows.forEach { keyRow ->
-            val rowLayout = LinearLayout(context).apply {
-                orientation = HORIZONTAL
-                gravity = Gravity.CENTER
-                layoutParams = LayoutParams(LayoutParams.MATCH_PARENT, scaledRowHeight).apply {
-                    bottomMargin = rowMarginB
+        if (rows.isNotEmpty()) {
+            val totalMargins = (rows.size - 1) * rowMarginB
+            val rowHeight = maxOf(dpToPx(32), (targetContentHeight - totalMargins) / rows.size)
+
+            rows.forEach { keyRow ->
+                val rowLayout = LinearLayout(context).apply {
+                    orientation = HORIZONTAL
+                    gravity = Gravity.CENTER
+                    layoutParams = LayoutParams(LayoutParams.MATCH_PARENT, rowHeight).apply {
+                        bottomMargin = rowMarginB
+                    }
                 }
-            }
 
-            keyRow.forEach { keyModel ->
-                val keyView = createKeyView(keyModel)
-                rowLayout.addView(keyView)
-            }
+                keyRow.forEach { keyModel ->
+                    val keyView = createKeyView(keyModel)
+                    rowLayout.addView(keyView)
+                }
 
-            rowsLayout.addView(rowLayout)
+                rowsLayout.addView(rowLayout)
+            }
         }
     }
 
@@ -953,8 +956,16 @@ class CustomKeyboardView @JvmOverloads constructor(
                     }
                 })
             }
-            keyboardContainer.addView(emojiKeyboardView)
+            emojiKeyboardView?.updateFixedContentHeight(getStandardContentHeight())
+            keyboardContainer.addView(
+                emojiKeyboardView,
+                FrameLayout.LayoutParams(
+                    FrameLayout.LayoutParams.MATCH_PARENT,
+                    FrameLayout.LayoutParams.WRAP_CONTENT
+                )
+            )
         } else {
+            emojiKeyboardView?.updateFixedContentHeight(getStandardContentHeight())
             emojiKeyboardView?.visibility = View.VISIBLE
         }
     }
@@ -963,9 +974,12 @@ class CustomKeyboardView @JvmOverloads constructor(
         rowsLayout.visibility = View.GONE
         emojiKeyboardView?.visibility = View.GONE
 
+        val targetContentH = getStandardContentHeight()
+
         if (clipboardView == null) {
             clipboardView = ClipboardView(context).apply {
                 applyTheme(currentTheme)
+                updateFixedContentHeight(targetContentH)
                 setClipboardListener(object : ClipboardView.ClipboardListener {
                     override fun onClipSelected(text: String) {
                         performHapticFeedback()
@@ -979,8 +993,15 @@ class CustomKeyboardView @JvmOverloads constructor(
                     }
                 })
             }
-            keyboardContainer.addView(clipboardView)
+            keyboardContainer.addView(
+                clipboardView,
+                FrameLayout.LayoutParams(
+                    FrameLayout.LayoutParams.MATCH_PARENT,
+                    FrameLayout.LayoutParams.WRAP_CONTENT
+                )
+            )
         } else {
+            clipboardView?.updateFixedContentHeight(targetContentH)
             clipboardView?.refreshClips()
             clipboardView?.visibility = View.VISIBLE
         }
@@ -1035,6 +1056,16 @@ class CustomKeyboardView @JvmOverloads constructor(
         val sysNavHeight = getNavigationBarHeight()
         val minPad = if (isTablet) dpToPx(56) else dpToPx(48)
         return maxOf(sysNavHeight, minPad) + dpToPx(8)
+    }
+
+    private fun getStandardContentHeight(): Int {
+        val isTablet = context.resources.configuration.smallestScreenWidthDp >= 600
+        val isLandscape = context.resources.configuration.orientation == android.content.res.Configuration.ORIENTATION_LANDSCAPE
+        val baseRowHeight = if (isTablet) dpToPx(54) else if (isLandscape) dpToPx(42) else dpToPx(48)
+        val scaledRowHeight = (baseRowHeight * preferences.heightScale).toInt()
+        val numStandardRows = 4
+        val rowMarginB = if (isTablet) dpToPx(6) else dpToPx(4)
+        return (numStandardRows * scaledRowHeight) + ((numStandardRows - 1) * rowMarginB)
     }
 
     private fun dpToPx(dp: Int): Int {

@@ -93,6 +93,18 @@ class ClipboardView @JvmOverloads constructor(
         this.listener = listener
     }
 
+    fun updateFixedContentHeight(targetContentHeight: Int) {
+        val finalBottom = getCalculatedBottomPadding()
+        val totalH = targetContentHeight + finalBottom
+        val lp = layoutParams ?: android.view.ViewGroup.LayoutParams(
+            android.view.ViewGroup.LayoutParams.MATCH_PARENT,
+            totalH
+        )
+        lp.height = totalH
+        layoutParams = lp
+        setPadding(dpToPx(8), dpToPx(6), dpToPx(8), finalBottom)
+    }
+
     fun applyTheme(theme: KeyboardTheme) {
         this.currentTheme = theme
         setBackgroundColor(theme.backgroundColor)

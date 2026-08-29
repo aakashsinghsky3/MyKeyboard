@@ -111,6 +111,13 @@ class EmojiKeyboardView @JvmOverloads constructor(
         this.listener = listener
     }
 
+    fun updateFixedContentHeight(targetContentHeight: Int) {
+        val categoryH = dpToPx(40)
+        val bottomBarBtnH = dpToPx(48)
+        val availablePagerHeight = maxOf(dpToPx(120), targetContentHeight - categoryH - bottomBarBtnH)
+        viewPager.layoutParams = LayoutParams(LayoutParams.MATCH_PARENT, availablePagerHeight)
+    }
+
     private fun setupPagerAdapter() {
         val isTablet = context.resources.configuration.smallestScreenWidthDp >= 600
         val isLandscape = context.resources.configuration.orientation == android.content.res.Configuration.ORIENTATION_LANDSCAPE
