@@ -37,9 +37,18 @@ class ClipboardView @JvmOverloads constructor(
     private val scrollView: ScrollView
 
     init {
+        val initialBottomPad = getCalculatedBottomPadding()
         orientation = VERTICAL
-        layoutParams = LayoutParams(LayoutParams.MATCH_PARENT, dpToPx(245))
-        setPadding(dpToPx(8), dpToPx(6), dpToPx(8), dpToPx(6))
+        layoutParams = LayoutParams(LayoutParams.MATCH_PARENT, dpToPx(245) + initialBottomPad)
+        setPadding(dpToPx(8), dpToPx(6), dpToPx(8), initialBottomPad)
+
+        androidx.core.view.ViewCompat.setOnApplyWindowInsetsListener(this) { _, windowInsets ->
+            val navInsets = windowInsets.getInsets(androidx.core.view.WindowInsetsCompat.Type.navigationBars())
+            val finalBottom = maxOf(navInsets.bottom, getCalculatedBottomPadding())
+            layoutParams = LayoutParams(LayoutParams.MATCH_PARENT, dpToPx(245) + finalBottom)
+            setPadding(dpToPx(8), dpToPx(6), dpToPx(8), finalBottom)
+            windowInsets
+        }
 
         // 1. Header (Title, Clear Unpinned, Close)
         headerLayout = LinearLayout(context).apply {
@@ -243,6 +252,18 @@ class ClipboardView @JvmOverloads constructor(
             hours < 24 -> "${hours}h ago"
             else -> "${days}d ago"
         }
+    }
+
+    private fun getNavigationBarHeight(): Int {
+        val resourceId = context.resources.getIdentifier("navigation_bar_height", "dimen", "android")
+        return if (resourceId > 0) context.resources.getDimensionPixelSize(resourceId) else 0
+    }
+
+    private fun getCalculatedBottomPadding(): Int {
+        val isTablet = context.resources.configuration.smallestScreenWidthDp >= 600
+        val sysNavHeight = getNavigationBarHeight()
+        val minPad = if (isTablet) dpToPx(56) else dpToPx(48)
+        return maxOf(sysNavHeight, minPad) + dpToPx(8)
     }
 
     private fun dpToPx(dp: Int): Int {
