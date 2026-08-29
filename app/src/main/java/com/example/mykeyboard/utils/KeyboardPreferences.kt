@@ -2,6 +2,7 @@ package com.example.mykeyboard.utils
 
 import android.content.Context
 import android.content.SharedPreferences
+import com.example.mykeyboard.engine.AutoCorrectMode
 import com.example.mykeyboard.model.KeyboardTheme
 
 class KeyboardPreferences(context: Context) {
@@ -46,6 +47,31 @@ class KeyboardPreferences(context: Context) {
         get() = prefs.getFloat(KEY_HEIGHT_SCALE, 1.0f)
         set(value) = prefs.edit().putFloat(KEY_HEIGHT_SCALE, value).apply()
 
+    var autoCorrectMode: AutoCorrectMode
+        get() {
+            val modeId = prefs.getString(KEY_AUTO_CORRECT_MODE, AutoCorrectMode.CONSERVATIVE.id)
+            return AutoCorrectMode.fromId(modeId)
+        }
+        set(value) {
+            prefs.edit().putString(KEY_AUTO_CORRECT_MODE, value.id).apply()
+        }
+
+    var customBgPath: String?
+        get() = prefs.getString(KEY_CUSTOM_BG_PATH, null)
+        set(value) = prefs.edit().putString(KEY_CUSTOM_BG_PATH, value).apply()
+
+    var customBgOpacity: Float
+        get() = prefs.getFloat(KEY_CUSTOM_BG_OPACITY, 0.70f)
+        set(value) = prefs.edit().putFloat(KEY_CUSTOM_BG_OPACITY, value).apply()
+
+    var isVoiceTypingEnabled: Boolean
+        get() = prefs.getBoolean(KEY_VOICE_TYPING, true)
+        set(value) = prefs.edit().putBoolean(KEY_VOICE_TYPING, value).apply()
+
+    var isClipboardHistoryEnabled: Boolean
+        get() = prefs.getBoolean(KEY_CLIPBOARD_HISTORY, true)
+        set(value) = prefs.edit().putBoolean(KEY_CLIPBOARD_HISTORY, value).apply()
+
     fun registerListener(listener: SharedPreferences.OnSharedPreferenceChangeListener) {
         prefs.registerOnSharedPreferenceChangeListener(listener)
     }
@@ -64,5 +90,10 @@ class KeyboardPreferences(context: Context) {
         const val KEY_NUMBER_ROW = "pref_number_row"
         const val KEY_AUTO_CAPS = "pref_auto_caps"
         const val KEY_HEIGHT_SCALE = "pref_height_scale"
+        const val KEY_AUTO_CORRECT_MODE = "pref_auto_correct_mode"
+        const val KEY_CUSTOM_BG_PATH = "pref_custom_bg_path"
+        const val KEY_CUSTOM_BG_OPACITY = "pref_custom_bg_opacity"
+        const val KEY_VOICE_TYPING = "pref_voice_typing"
+        const val KEY_CLIPBOARD_HISTORY = "pref_clipboard_history"
     }
 }

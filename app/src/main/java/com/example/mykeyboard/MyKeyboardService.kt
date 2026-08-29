@@ -1,5 +1,7 @@
 package com.example.mykeyboard
 
+import android.content.ClipboardManager
+import android.content.Context
 import android.content.Intent
 import android.content.SharedPreferences
 import android.inputmethodservice.InputMethodService
@@ -7,6 +9,10 @@ import android.text.TextUtils
 import android.view.KeyEvent
 import android.view.View
 import android.view.inputmethod.EditorInfo
+import com.example.mykeyboard.engine.AutoCorrectEngine
+import com.example.mykeyboard.engine.ClipboardHistoryManager
+import com.example.mykeyboard.engine.PredictionEngine
+import com.example.mykeyboard.engine.UndoRedoManager
 import com.example.mykeyboard.model.ShiftState
 import com.example.mykeyboard.utils.KeyboardPreferences
 import com.example.mykeyboard.view.CustomKeyboardView
@@ -16,17 +22,28 @@ class MyKeyboardService : InputMethodService(),
     SharedPreferences.OnSharedPreferenceChangeListener {
 
     private lateinit var preferences: KeyboardPreferences
+    private lateinit var predictionEngine: PredictionEngine
+    private lateinit var undoRedoManager: UndoRedoManager
+    private lateinit var clipboardHistoryManager: ClipboardHistoryManager
+
     private var keyboardView: CustomKeyboardView? = null
     private var lastSpaceTime: Long = 0L
+    private var clipboardListener: ClipboardManager.OnPrimaryClipChangedListener? = null
 
     override fun onCreate() {
         super.onCreate()
         preferences = KeyboardPreferences(this)
         preferences.registerListener(this)
+        predictionEngine = PredictionEngine(this)
+        undoRedoManager = UndoRedoManager()
+        clipboardHistoryManager = ClipboardHistoryManager(this)
+
+        setupClipboardListener()
     }
 
     override fun onDestroy() {
         preferences.unregisterListener(this)
+        removeClipboardListener()
         super.onDestroy()
     }
 
@@ -51,6 +68,7 @@ class MyKeyboardService : InputMethodService(),
     override fun onStartInput(attribute: EditorInfo?, restarting: Boolean) {
         super.onStartInput(attribute, restarting)
         keyboardView?.resetToAlpha()
+        undoRedoManager.clear()
     }
 
     override fun onStartInputView(info: EditorInfo?, restarting: Boolean) {
@@ -59,7 +77,8 @@ class MyKeyboardService : InputMethodService(),
             keyboardView?.setImeOptions(info.imeOptions, info.actionLabel)
         }
         checkAutoCaps()
-        updateCurrentWordSuggestions()
+        updatePredictions()
+        recordCurrentSnapshot()
     }
 
     // ---------------------------------------------------------------------------------------------
@@ -67,13 +86,32 @@ class MyKeyboardService : InputMethodService(),
     // ---------------------------------------------------------------------------------------------
     override fun onTextKey(text: String) {
         val ic = currentInputConnection ?: return
+        recordCurrentSnapshot()
+
+        // If committing a suggestion with a trailing space, learn the word
+        val trimmed = text.trim()
+        if (trimmed.isNotEmpty() && !trimmed.contains(" ")) {
+            predictionEngine.learnWord(trimmed)
+        }
+
+        // Replace partial prefix if committing a suggestion word
+        val textBefore = ic.getTextBeforeCursor(20, 0)?.toString() ?: ""
+        val lastWord = textBefore.split(Regex("[^a-zA-Z0-9']")).lastOrNull() ?: ""
+
+        if (text.startsWith(lastWord, ignoreCase = true) && lastWord.isNotEmpty() && text.length > lastWord.length) {
+            ic.deleteSurroundingText(lastWord.length, 0)
+        }
+
         ic.commitText(text, 1)
         checkAutoCaps()
-        updateCurrentWordSuggestions()
+        updatePredictions()
+        recordCurrentSnapshot()
     }
 
     override fun onBackspace() {
         val ic = currentInputConnection ?: return
+        recordCurrentSnapshot()
+
         val selectedText = ic.getSelectedText(0)
         if (!TextUtils.isEmpty(selectedText)) {
             ic.commitText("", 1)
@@ -81,22 +119,45 @@ class MyKeyboardService : InputMethodService(),
             ic.deleteSurroundingText(1, 0)
         }
         checkAutoCaps()
-        updateCurrentWordSuggestions()
+        updatePredictions()
+        recordCurrentSnapshot()
     }
 
     override fun onSpace() {
         val ic = currentInputConnection ?: return
-        val now = System.currentTimeMillis()
+        recordCurrentSnapshot()
 
-        // Double space for ". " shortcut
+        val now = System.currentTimeMillis()
+        val textBefore = ic.getTextBeforeCursor(30, 0)?.toString() ?: ""
+
+        // 1. Double space for ". " shortcut
         if (now - lastSpaceTime < 450) {
-            val textBefore = ic.getTextBeforeCursor(2, 0)?.toString() ?: ""
             if (textBefore.endsWith(" ") && !textBefore.endsWith(". ")) {
                 ic.deleteSurroundingText(1, 0)
                 ic.commitText(". ", 1)
                 lastSpaceTime = 0L
                 checkAutoCaps()
-                updateCurrentWordSuggestions()
+                updatePredictions()
+                recordCurrentSnapshot()
+                return
+            }
+        }
+
+        // 2. Auto-Correction on Space
+        val words = textBefore.trimEnd().split(Regex("[^a-zA-Z0-9']")).filter { it.isNotEmpty() }
+        val lastWord = words.lastOrNull() ?: ""
+
+        if (lastWord.isNotEmpty()) {
+            predictionEngine.learnWord(lastWord)
+
+            val correction = AutoCorrectEngine.getCorrection(lastWord, preferences.autoCorrectMode)
+            if (correction != null && correction != lastWord) {
+                ic.deleteSurroundingText(lastWord.length, 0)
+                ic.commitText("$correction ", 1)
+                lastSpaceTime = now
+                checkAutoCaps()
+                updatePredictions()
+                recordCurrentSnapshot()
                 return
             }
         }
@@ -104,11 +165,14 @@ class MyKeyboardService : InputMethodService(),
         ic.commitText(" ", 1)
         lastSpaceTime = now
         checkAutoCaps()
-        updateCurrentWordSuggestions()
+        updatePredictions()
+        recordCurrentSnapshot()
     }
 
     override fun onEnter(actionId: Int) {
         val ic = currentInputConnection ?: return
+        recordCurrentSnapshot()
+
         if (actionId != EditorInfo.IME_ACTION_NONE && actionId != EditorInfo.IME_ACTION_UNSPECIFIED) {
             ic.performEditorAction(actionId)
         } else {
@@ -116,9 +180,7 @@ class MyKeyboardService : InputMethodService(),
         }
     }
 
-    override fun onOpenEmoji() {
-        // Handled inside CustomKeyboardView
-    }
+    override fun onOpenEmoji() {}
 
     override fun onOpenSettings() {
         val intent = Intent(this, MainActivity::class.java).apply {
@@ -137,14 +199,43 @@ class MyKeyboardService : InputMethodService(),
 
     override fun onPasteClipboard(text: String) {
         val ic = currentInputConnection ?: return
+        recordCurrentSnapshot()
         ic.commitText(text, 1)
         checkAutoCaps()
-        updateCurrentWordSuggestions()
+        updatePredictions()
+        recordCurrentSnapshot()
+    }
+
+    override fun onUndo() {
+        val ic = currentInputConnection ?: return
+        undoRedoManager.undo(ic)
+        checkAutoCaps()
+        updatePredictions()
+    }
+
+    override fun onRedo() {
+        val ic = currentInputConnection ?: return
+        undoRedoManager.redo(ic)
+        checkAutoCaps()
+        updatePredictions()
+    }
+
+    override fun onAddWordToDictionary(word: String) {
+        predictionEngine.addCustomWord(word)
+        updatePredictions()
     }
 
     // ---------------------------------------------------------------------------------------------
-    // Auto-Capitalization & Suggestions
+    // Undo / Redo & Prediction Helpers
     // ---------------------------------------------------------------------------------------------
+    private fun recordCurrentSnapshot() {
+        val ic = currentInputConnection ?: return
+        val textBefore = ic.getTextBeforeCursor(1000, 0)?.toString() ?: ""
+        val textAfter = ic.getTextAfterCursor(1000, 0)?.toString() ?: ""
+        val fullText = textBefore + textAfter
+        undoRedoManager.recordState(fullText, textBefore.length)
+    }
+
     private fun checkAutoCaps() {
         if (!preferences.isAutoCapsEnabled) return
 
@@ -165,11 +256,43 @@ class MyKeyboardService : InputMethodService(),
         }
     }
 
-    private fun updateCurrentWordSuggestions() {
+    private fun updatePredictions() {
         val ic = currentInputConnection ?: return
-        val textBefore = ic.getTextBeforeCursor(20, 0)?.toString() ?: ""
-        val lastWord = textBefore.split(Regex("[^a-zA-Z0-9']")).lastOrNull() ?: ""
-        keyboardView?.updateSuggestions(lastWord)
+        val textBefore = ic.getTextBeforeCursor(50, 0)?.toString() ?: ""
+
+        val isAfterSpace = textBefore.endsWith(" ")
+        val allWords = textBefore.trim().split(Regex("[^a-zA-Z0-9']")).filter { it.isNotEmpty() }
+
+        val prefix = if (isAfterSpace) "" else (allWords.lastOrNull() ?: "")
+        val prevWords = if (isAfterSpace) allWords else allWords.dropLast(1)
+
+        keyboardView?.updatePredictions(prefix, prevWords)
+    }
+
+    // ---------------------------------------------------------------------------------------------
+    // Clipboard Listener
+    // ---------------------------------------------------------------------------------------------
+    private fun setupClipboardListener() {
+        try {
+            val cm = getSystemService(Context.CLIPBOARD_SERVICE) as? ClipboardManager
+            clipboardListener = ClipboardManager.OnPrimaryClipChangedListener {
+                if (preferences.isClipboardHistoryEnabled) {
+                    val clip = cm?.primaryClip?.getItemAt(0)?.text?.toString()
+                    if (!clip.isNullOrEmpty()) {
+                        clipboardHistoryManager.addClip(clip)
+                        keyboardView?.refreshClipboard()
+                    }
+                }
+            }
+            cm?.addPrimaryClipChangedListener(clipboardListener)
+        } catch (_: Exception) {}
+    }
+
+    private fun removeClipboardListener() {
+        try {
+            val cm = getSystemService(Context.CLIPBOARD_SERVICE) as? ClipboardManager
+            clipboardListener?.let { cm?.removePrimaryClipChangedListener(it) }
+        } catch (_: Exception) {}
     }
 
     // ---------------------------------------------------------------------------------------------
@@ -177,11 +300,12 @@ class MyKeyboardService : InputMethodService(),
     // ---------------------------------------------------------------------------------------------
     override fun onSharedPreferenceChanged(sharedPreferences: SharedPreferences?, key: String?) {
         when (key) {
-            KeyboardPreferences.KEY_THEME -> {
-                keyboardView?.applyTheme(preferences.theme)
-            }
+            KeyboardPreferences.KEY_THEME,
             KeyboardPreferences.KEY_NUMBER_ROW,
-            KeyboardPreferences.KEY_HEIGHT_SCALE -> {
+            KeyboardPreferences.KEY_HEIGHT_SCALE,
+            KeyboardPreferences.KEY_CUSTOM_BG_PATH,
+            KeyboardPreferences.KEY_CUSTOM_BG_OPACITY,
+            KeyboardPreferences.KEY_VOICE_TYPING -> {
                 keyboardView?.applyTheme(preferences.theme)
             }
         }

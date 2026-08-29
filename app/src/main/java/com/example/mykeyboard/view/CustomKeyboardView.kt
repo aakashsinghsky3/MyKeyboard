@@ -2,12 +2,13 @@ package com.example.mykeyboard.view
 
 import android.animation.AnimatorSet
 import android.animation.ObjectAnimator
-import android.content.ClipboardManager
 import android.content.Context
+import android.graphics.Bitmap
+import android.graphics.BitmapFactory
 import android.graphics.Color
 import android.graphics.Typeface
+import android.graphics.drawable.BitmapDrawable
 import android.graphics.drawable.GradientDrawable
-import android.graphics.drawable.RippleDrawable
 import android.media.AudioManager
 import android.os.Build
 import android.os.Handler
@@ -16,21 +17,21 @@ import android.os.VibrationEffect
 import android.os.Vibrator
 import android.os.VibratorManager
 import android.util.AttributeSet
-import android.util.TypedValue
 import android.view.Gravity
 import android.view.MotionEvent
 import android.view.View
-import android.view.ViewGroup
 import android.view.animation.OvershootInterpolator
 import android.view.inputmethod.EditorInfo
 import android.widget.FrameLayout
-import android.widget.HorizontalScrollView
 import android.widget.ImageView
 import android.widget.LinearLayout
 import android.widget.PopupWindow
 import android.widget.TextView
-import androidx.core.content.ContextCompat
+import android.widget.Toast
 import com.example.mykeyboard.R
+import com.example.mykeyboard.engine.PredictionEngine
+import com.example.mykeyboard.engine.SuggestionResult
+import com.example.mykeyboard.engine.VoiceTypingHelper
 import com.example.mykeyboard.model.KeyLayoutHelper
 import com.example.mykeyboard.model.KeyModel
 import com.example.mykeyboard.model.KeyType
@@ -38,6 +39,7 @@ import com.example.mykeyboard.model.KeyboardMode
 import com.example.mykeyboard.model.KeyboardTheme
 import com.example.mykeyboard.model.ShiftState
 import com.example.mykeyboard.utils.KeyboardPreferences
+import java.io.File
 import kotlin.math.abs
 
 class CustomKeyboardView @JvmOverloads constructor(
@@ -55,6 +57,9 @@ class CustomKeyboardView @JvmOverloads constructor(
         fun onOpenSettings()
         fun onMoveCursor(offset: Int)
         fun onPasteClipboard(text: String)
+        fun onUndo()
+        fun onRedo()
+        fun onAddWordToDictionary(word: String)
     }
 
     private var actionListener: KeyboardActionListener? = null
@@ -69,11 +74,25 @@ class CustomKeyboardView @JvmOverloads constructor(
     private var actionLabel: String? = null
 
     // UI containers
-    private val suggestionContainer: HorizontalScrollView
-    private val suggestionLayout: LinearLayout
+    private val suggestionContainer: LinearLayout
+    private val toolbarActionsLayout: LinearLayout
+    private val candidatesLayout: LinearLayout
     private val keyboardContainer: FrameLayout
     private val rowsLayout: LinearLayout
     private var emojiKeyboardView: EmojiKeyboardView? = null
+    private var clipboardView: ClipboardView? = null
+
+    // Suggestion Candidate Views
+    private lateinit var candidateLeftTv: TextView
+    private lateinit var candidateCenterTv: TextView
+    private lateinit var candidateRightTv: TextView
+    private lateinit var micIcon: ImageView
+    private var isVoiceListening = false
+
+    // Prediction Engine & Voice Helper
+    private val predictionEngine = PredictionEngine(context)
+    private val voiceTypingHelper = VoiceTypingHelper(context)
+    private var currentSuggestionResult: SuggestionResult? = null
 
     // Popup window for key preview & accents
     private var popupWindow: PopupWindow? = null
@@ -94,7 +113,7 @@ class CustomKeyboardView @JvmOverloads constructor(
                 performHapticFeedback()
                 performAudioFeedback()
                 actionListener?.onBackspace()
-                handler.postDelayed(this, 50)
+                handler.postDelayed(this, 45)
             }
         }
     }
@@ -109,37 +128,36 @@ class CustomKeyboardView @JvmOverloads constructor(
         context.getSystemService(Context.VIBRATOR_SERVICE) as? Vibrator
     }
 
-    // Common word dictionary for suggestions
-    private val commonWords = listOf(
-        "the", "and", "you", "that", "was", "for", "are", "with", "his", "they",
-        "this", "have", "from", "one", "had", "word", "but", "not", "what", "all",
-        "were", "when", "your", "can", "said", "there", "use", "each", "which", "she",
-        "how", "their", "will", "other", "about", "many", "then", "them", "these", "some",
-        "keyboard", "android", "awesome", "thanks", "great", "hello", "please", "yes", "good", "love"
-    )
-
     init {
         orientation = VERTICAL
         gravity = Gravity.CENTER_HORIZONTAL
         layoutParams = LayoutParams(LayoutParams.MATCH_PARENT, LayoutParams.WRAP_CONTENT)
-        setBackgroundColor(currentTheme.backgroundColor)
 
-        // 1. Suggestion & Quick Actions Bar
-        suggestionContainer = HorizontalScrollView(context).apply {
+        // 1. Suggestion & Smart Action Toolbar
+        suggestionContainer = LinearLayout(context).apply {
+            orientation = HORIZONTAL
+            gravity = Gravity.CENTER_VERTICAL
             layoutParams = LayoutParams(LayoutParams.MATCH_PARENT, dpToPx(42))
-            isHorizontalScrollBarEnabled = false
-            setBackgroundColor(currentTheme.suggestionBgColor)
+            setPadding(dpToPx(4), 0, dpToPx(4), 0)
         }
-        suggestionLayout = LinearLayout(context).apply {
+
+        toolbarActionsLayout = LinearLayout(context).apply {
             orientation = HORIZONTAL
             gravity = Gravity.CENTER_VERTICAL
             layoutParams = LayoutParams(LayoutParams.WRAP_CONTENT, LayoutParams.MATCH_PARENT)
-            setPadding(dpToPx(6), 0, dpToPx(6), 0)
         }
-        suggestionContainer.addView(suggestionLayout)
+        suggestionContainer.addView(toolbarActionsLayout)
+
+        candidatesLayout = LinearLayout(context).apply {
+            orientation = HORIZONTAL
+            gravity = Gravity.CENTER
+            layoutParams = LayoutParams(0, LayoutParams.MATCH_PARENT, 1.0f)
+        }
+        suggestionContainer.addView(candidatesLayout)
+
         addView(suggestionContainer)
 
-        // 2. Keyboard & Emoji Container
+        // 2. Keyboard Views Container
         keyboardContainer = FrameLayout(context).apply {
             layoutParams = LayoutParams(LayoutParams.MATCH_PARENT, LayoutParams.WRAP_CONTENT)
         }
@@ -147,14 +165,16 @@ class CustomKeyboardView @JvmOverloads constructor(
             orientation = VERTICAL
             gravity = Gravity.CENTER_HORIZONTAL
             layoutParams = FrameLayout.LayoutParams(FrameLayout.LayoutParams.MATCH_PARENT, FrameLayout.LayoutParams.WRAP_CONTENT)
-            setPadding(dpToPx(3), dpToPx(5), dpToPx(3), dpToPx(6))
+            setPadding(dpToPx(3), dpToPx(4), dpToPx(3), dpToPx(6))
         }
         keyboardContainer.addView(rowsLayout)
         addView(keyboardContainer)
 
         initKeyPopup()
         initAccentsPopup()
-        renderSuggestions("")
+        setupVoiceTyping()
+        setupToolbarAndCandidates()
+        applyBackgroundAndTheme()
         renderKeyboardLayout()
     }
 
@@ -172,15 +192,65 @@ class CustomKeyboardView @JvmOverloads constructor(
 
     fun applyTheme(theme: KeyboardTheme) {
         this.currentTheme = theme
-        setBackgroundColor(theme.backgroundColor)
-        suggestionContainer.setBackgroundColor(theme.suggestionBgColor)
+        applyBackgroundAndTheme()
         emojiKeyboardView?.applyTheme(theme)
-        renderSuggestions("")
+        clipboardView?.applyTheme(theme)
+        setupToolbarAndCandidates()
         renderKeyboardLayout()
     }
 
-    fun updateSuggestions(prefix: String) {
-        renderSuggestions(prefix)
+    private fun applyBackgroundAndTheme() {
+        val customPath = preferences.customBgPath
+        if (!customPath.isNullOrEmpty() && File(customPath).exists()) {
+            try {
+                val bitmap = BitmapFactory.decodeFile(customPath)
+                if (bitmap != null) {
+                    val opacity = preferences.customBgOpacity
+                    val drawable = BitmapDrawable(resources, bitmap).apply {
+                        alpha = (opacity * 255).toInt()
+                    }
+                    background = drawable
+                    suggestionContainer.setBackgroundColor(Color.argb((opacity * 200).toInt(), 20, 24, 33))
+                    return
+                }
+            } catch (_: Exception) {}
+        }
+
+        setBackgroundColor(currentTheme.backgroundColor)
+        suggestionContainer.setBackgroundColor(currentTheme.suggestionBgColor)
+    }
+
+    fun updatePredictions(prefix: String, previousWords: List<String>) {
+        val result = predictionEngine.getSuggestions(prefix, previousWords, preferences.autoCorrectMode)
+        currentSuggestionResult = result
+
+        // Left Candidate
+        candidateLeftTv.text = result.left ?: ""
+        candidateLeftTv.visibility = if (result.left.isNullOrEmpty()) View.INVISIBLE else View.VISIBLE
+
+        // Center Candidate (Primary / Autocorrect)
+        candidateCenterTv.text = result.center ?: ""
+        if (result.isAutoCorrect) {
+            candidateCenterTv.setTypeface(Typeface.DEFAULT_BOLD, Typeface.BOLD_ITALIC)
+            candidateCenterTv.setTextColor(currentTheme.actionTextColor)
+            val bg = GradientDrawable().apply {
+                cornerRadius = dpToPx(10).toFloat()
+                setColor(currentTheme.keyActionColor)
+            }
+            candidateCenterTv.background = bg
+        } else {
+            candidateCenterTv.typeface = Typeface.DEFAULT_BOLD
+            candidateCenterTv.setTextColor(currentTheme.suggestionTextColor)
+            val bg = GradientDrawable().apply {
+                cornerRadius = dpToPx(10).toFloat()
+                setColor(currentTheme.keySpecialColor)
+            }
+            candidateCenterTv.background = bg
+        }
+
+        // Right Candidate
+        candidateRightTv.text = result.right ?: ""
+        candidateRightTv.visibility = if (result.right.isNullOrEmpty()) View.INVISIBLE else View.VISIBLE
     }
 
     fun setShiftState(state: ShiftState) {
@@ -198,104 +268,182 @@ class CustomKeyboardView @JvmOverloads constructor(
         showAlphaKeyboard()
     }
 
-    // ---------------------------------------------------------------------------------------------
-    // Suggestion Bar Rendering
-    // ---------------------------------------------------------------------------------------------
-    private fun renderSuggestions(prefix: String) {
-        suggestionLayout.removeAllViews()
+    fun refreshClipboard() {
+        clipboardView?.refreshClips()
+    }
 
-        // 1. Settings shortcut icon
-        val settingsBtn = ImageView(context).apply {
-            setImageResource(R.drawable.ic_settings)
+    // ---------------------------------------------------------------------------------------------
+    // Toolbar & 3-Candidate Suggestion Strip
+    // ---------------------------------------------------------------------------------------------
+    private fun setupToolbarAndCandidates() {
+        toolbarActionsLayout.removeAllViews()
+        candidatesLayout.removeAllViews()
+
+        // 1. Settings Shortcut
+        val settingsBtn = createToolbarIconButton(R.drawable.ic_settings) {
+            actionListener?.onOpenSettings()
+        }
+        toolbarActionsLayout.addView(settingsBtn)
+
+        // 2. Undo & Redo Buttons
+        val undoBtn = createToolbarIconButton(R.drawable.ic_undo) {
+            actionListener?.onUndo()
+        }
+        toolbarActionsLayout.addView(undoBtn)
+
+        val redoBtn = createToolbarIconButton(R.drawable.ic_redo) {
+            actionListener?.onRedo()
+        }
+        toolbarActionsLayout.addView(redoBtn)
+
+        // 3. Clipboard Manager Button
+        val clipBtn = createToolbarIconButton(R.drawable.ic_paste) {
+            if (clipboardView?.visibility == View.VISIBLE) {
+                showAlphaKeyboard()
+            } else {
+                showClipboardView()
+            }
+        }
+        toolbarActionsLayout.addView(clipBtn)
+
+        // 4. Voice Mic Button
+        if (preferences.isVoiceTypingEnabled) {
+            micIcon = createToolbarIconButton(if (isVoiceListening) R.drawable.ic_mic_active else R.drawable.ic_mic) {
+                toggleVoiceTyping()
+            } as ImageView
+            toolbarActionsLayout.addView(micIcon)
+        }
+
+        // 5. 3 Candidate TextViews in CandidatesLayout
+        candidateLeftTv = createCandidateTextView().apply {
+            setOnClickListener {
+                text.toString().takeIf { it.isNotEmpty() }?.let { word ->
+                    performHapticFeedback()
+                    performAudioFeedback()
+                    actionListener?.onTextKey("$word ")
+                }
+            }
+            setOnLongClickListener {
+                showAddWordDialog(text.toString())
+                true
+            }
+        }
+        candidatesLayout.addView(candidateLeftTv)
+
+        candidateCenterTv = createCandidateTextView().apply {
+            setOnClickListener {
+                text.toString().takeIf { it.isNotEmpty() }?.let { word ->
+                    performHapticFeedback()
+                    performAudioFeedback()
+                    actionListener?.onTextKey("$word ")
+                }
+            }
+            setOnLongClickListener {
+                showAddWordDialog(text.toString())
+                true
+            }
+        }
+        candidatesLayout.addView(candidateCenterTv)
+
+        candidateRightTv = createCandidateTextView().apply {
+            setOnClickListener {
+                text.toString().takeIf { it.isNotEmpty() }?.let { word ->
+                    performHapticFeedback()
+                    performAudioFeedback()
+                    actionListener?.onTextKey("$word ")
+                }
+            }
+            setOnLongClickListener {
+                showAddWordDialog(text.toString())
+                true
+            }
+        }
+        candidatesLayout.addView(candidateRightTv)
+    }
+
+    private fun createToolbarIconButton(iconRes: Int, onClick: () -> Unit): View {
+        return ImageView(context).apply {
+            setImageResource(iconRes)
             setColorFilter(currentTheme.textColorSecondary)
             val pad = dpToPx(7)
             setPadding(pad, pad, pad, pad)
-            val size = dpToPx(34)
-            layoutParams = LayoutParams(size, size).apply { marginEnd = dpToPx(4) }
+            val size = dpToPx(32)
+            layoutParams = LayoutParams(size, size).apply { marginEnd = dpToPx(3) }
             val bg = GradientDrawable().apply {
-                cornerRadius = dpToPx(17).toFloat()
+                cornerRadius = dpToPx(16).toFloat()
                 setColor(currentTheme.keySpecialColor)
             }
             background = bg
             setOnClickListener {
                 performHapticFeedback()
-                actionListener?.onOpenSettings()
+                onClick()
             }
         }
-        suggestionLayout.addView(settingsBtn)
+    }
 
-        // 2. Clipboard Quick Paste button if clipboard has text
-        val clipboard = context.getSystemService(Context.CLIPBOARD_SERVICE) as? ClipboardManager
-        val clipText = clipboard?.primaryClip?.getItemAt(0)?.text?.toString()
-        if (!clipText.isNullOrEmpty()) {
-            val clipBtn = LinearLayout(context).apply {
-                orientation = HORIZONTAL
-                gravity = Gravity.CENTER
-                val bg = GradientDrawable().apply {
-                    cornerRadius = dpToPx(14).toFloat()
-                    setColor(currentTheme.keyActionColor)
-                }
-                background = bg
-                setPadding(dpToPx(8), dpToPx(4), dpToPx(10), dpToPx(4))
-                layoutParams = LayoutParams(LayoutParams.WRAP_CONTENT, dpToPx(30)).apply {
-                    marginEnd = dpToPx(6)
-                }
+    private fun createCandidateTextView(): TextView {
+        return TextView(context).apply {
+            textSize = 13f
+            gravity = Gravity.CENTER
+            maxLines = 1
+            setTextColor(currentTheme.suggestionTextColor)
+            val padH = dpToPx(6)
+            setPadding(padH, dpToPx(3), padH, dpToPx(3))
+            val bg = GradientDrawable().apply {
+                cornerRadius = dpToPx(10).toFloat()
+                setColor(currentTheme.keySpecialColor)
+            }
+            background = bg
+            layoutParams = LayoutParams(0, dpToPx(32), 1.0f).apply {
+                marginStart = dpToPx(2)
+                marginEnd = dpToPx(2)
+            }
+        }
+    }
 
-                val pasteIcon = ImageView(context).apply {
-                    setImageResource(R.drawable.ic_paste)
-                    setColorFilter(currentTheme.actionTextColor)
-                    layoutParams = LayoutParams(dpToPx(14), dpToPx(14)).apply { marginEnd = dpToPx(4) }
-                }
-                addView(pasteIcon)
+    private fun showAddWordDialog(word: String) {
+        if (word.isNotEmpty() && word.length >= 2) {
+            actionListener?.onAddWordToDictionary(word)
+            performHapticFeedback()
+            Toast.makeText(context, "Added \"$word\" to personal dictionary ✓", Toast.LENGTH_SHORT).show()
+        }
+    }
 
-                val pasteTv = TextView(context).apply {
-                    text = if (clipText.length > 12) clipText.take(12) + "…" else clipText
-                    textSize = 12f
-                    setTextColor(currentTheme.actionTextColor)
-                    typeface = Typeface.DEFAULT_BOLD
-                }
-                addView(pasteTv)
+    // ---------------------------------------------------------------------------------------------
+    // Voice Typing Setup
+    // ---------------------------------------------------------------------------------------------
+    private fun setupVoiceTyping() {
+        voiceTypingHelper.setListener(object : VoiceTypingHelper.VoiceListener {
+            override fun onListeningStarted() {
+                isVoiceListening = true
+                micIcon.setImageResource(R.drawable.ic_mic_active)
+                candidateCenterTv.text = "🎙️ Listening..."
+            }
 
-                setOnClickListener {
-                    performHapticFeedback()
-                    actionListener?.onPasteClipboard(clipText)
+            override fun onSpeechResult(text: String) {
+                if (text.isNotEmpty()) {
+                    actionListener?.onTextKey("$text ")
                 }
             }
-            suggestionLayout.addView(clipBtn)
-        }
 
-        // 3. Word Predictions or Quick Punctuation
-        val suggestions = if (prefix.length >= 2) {
-            val matches = commonWords.filter { it.startsWith(prefix, ignoreCase = true) }.take(4)
-            if (matches.isEmpty()) listOf(prefix, prefix.uppercase(), prefix.replaceFirstChar { it.uppercase() })
-            else matches
+            override fun onSpeechError(errorMessage: String) {
+                isVoiceListening = false
+                micIcon.setImageResource(R.drawable.ic_mic)
+                Toast.makeText(context, errorMessage, Toast.LENGTH_SHORT).show()
+            }
+
+            override fun onListeningEnded() {
+                isVoiceListening = false
+                micIcon.setImageResource(R.drawable.ic_mic)
+            }
+        })
+    }
+
+    private fun toggleVoiceTyping() {
+        if (isVoiceListening) {
+            voiceTypingHelper.stopListening()
         } else {
-            listOf(".", ",", "?", "!", "-", "@", "#", "\"", "'", ":", ";", ")")
-        }
-
-        suggestions.forEach { word ->
-            val chip = TextView(context).apply {
-                text = word
-                textSize = 13f
-                gravity = Gravity.CENTER
-                setTextColor(currentTheme.suggestionTextColor)
-                val padH = dpToPx(12)
-                setPadding(padH, dpToPx(4), padH, dpToPx(4))
-                val bg = GradientDrawable().apply {
-                    cornerRadius = dpToPx(12).toFloat()
-                    setColor(currentTheme.keySpecialColor)
-                }
-                background = bg
-                layoutParams = LayoutParams(LayoutParams.WRAP_CONTENT, dpToPx(30)).apply {
-                    marginEnd = dpToPx(5)
-                }
-                setOnClickListener {
-                    performHapticFeedback()
-                    performAudioFeedback()
-                    actionListener?.onTextKey(if (prefix.length >= 2) "$word " else word)
-                }
-            }
-            suggestionLayout.addView(chip)
+            voiceTypingHelper.startListening()
         }
     }
 
@@ -325,7 +473,7 @@ class CustomKeyboardView @JvmOverloads constructor(
             }
 
             keyRow.forEach { keyModel ->
-                val keyView = createKeyView(keyModel, scaledRowHeight)
+                val keyView = createKeyView(keyModel)
                 rowLayout.addView(keyView)
             }
 
@@ -333,7 +481,7 @@ class CustomKeyboardView @JvmOverloads constructor(
         }
     }
 
-    private fun createKeyView(key: KeyModel, rowHeight: Int): View {
+    private fun createKeyView(key: KeyModel): View {
         val keyLayout = FrameLayout(context).apply {
             layoutParams = LayoutParams(0, LayoutParams.MATCH_PARENT, key.weight).apply {
                 marginStart = dpToPx(2)
@@ -341,7 +489,6 @@ class CustomKeyboardView @JvmOverloads constructor(
             }
         }
 
-        // Key background drawable
         val bgDrawable = GradientDrawable().apply {
             cornerRadius = dpToPx(7).toFloat()
             val color = when (key.type) {
@@ -358,7 +505,6 @@ class CustomKeyboardView @JvmOverloads constructor(
         }
         keyLayout.background = bgDrawable
 
-        // Content
         when (key.type) {
             KeyType.SHIFT -> {
                 val shiftIcon = ImageView(context).apply {
@@ -436,7 +582,6 @@ class CustomKeyboardView @JvmOverloads constructor(
                 keyLayout.addView(modeTv)
             }
             else -> {
-                // Character Key with Optional Top-Right Alt Character
                 val mainTv = TextView(context).apply {
                     val charText = if (shiftState != ShiftState.UNSHIFTED) key.shiftText else key.primaryText
                     text = charText
@@ -461,9 +606,7 @@ class CustomKeyboardView @JvmOverloads constructor(
             }
         }
 
-        // Attach Touch & Gesture Listeners
         attachTouchListener(keyLayout, key)
-
         return keyLayout
     }
 
@@ -524,7 +667,6 @@ class CustomKeyboardView @JvmOverloads constructor(
                 MotionEvent.ACTION_MOVE -> {
                     val dx = event.rawX - downX
 
-                    // Spacebar Cursor Slider
                     if (key.type == KeyType.SPACE && abs(dx) > dpToPx(12)) {
                         isCursorSliding = true
                         val diff = event.rawX - lastCursorMoveX
@@ -537,7 +679,6 @@ class CustomKeyboardView @JvmOverloads constructor(
                         }
                     }
 
-                    // Accents popup navigation
                     if (isLongPressHandled && accentsPopupWindow?.isShowing == true) {
                         handleAccentsMove(event.rawX)
                     }
@@ -587,7 +728,6 @@ class CustomKeyboardView @JvmOverloads constructor(
             KeyType.SHIFT -> {
                 val now = System.currentTimeMillis()
                 if (now - lastShiftPressTime < 300) {
-                    // Double tap for CAPS LOCK
                     shiftState = if (shiftState == ShiftState.CAPS_LOCKED) ShiftState.UNSHIFTED else ShiftState.CAPS_LOCKED
                 } else {
                     shiftState = when (shiftState) {
@@ -618,19 +758,17 @@ class CustomKeyboardView @JvmOverloads constructor(
             KeyType.SETTINGS -> {
                 actionListener?.onOpenSettings()
             }
-            KeyType.BACKSPACE -> {
-                // Already handled in ACTION_DOWN for instant responsiveness
-            }
+            KeyType.BACKSPACE -> {}
         }
     }
 
     // ---------------------------------------------------------------------------------------------
-    // Key Press Animation & Popup
+    // Key Animations & Popups
     // ---------------------------------------------------------------------------------------------
     private fun animateKeyPress(view: View, isPressed: Boolean) {
         val scale = if (isPressed) 0.92f else 1.0f
-        val animX = ObjectAnimator.ofFloat(view, "scaleX", scale).apply { duration = 80 }
-        val animY = ObjectAnimator.ofFloat(view, "scaleY", scale).apply { duration = 80 }
+        val animX = ObjectAnimator.ofFloat(view, "scaleX", scale).apply { duration = 75 }
+        val animY = ObjectAnimator.ofFloat(view, "scaleY", scale).apply { duration = 75 }
         AnimatorSet().apply {
             playTogether(animX, animY)
             interpolator = OvershootInterpolator(1.2f)
@@ -647,11 +785,7 @@ class CustomKeyboardView @JvmOverloads constructor(
             setPadding(pad, pad, pad, pad)
         }
         popupTextView = popupView
-        popupWindow = PopupWindow(
-            popupView,
-            dpToPx(56),
-            dpToPx(64)
-        ).apply {
+        popupWindow = PopupWindow(popupView, dpToPx(56), dpToPx(64)).apply {
             isTouchable = false
             animationStyle = android.R.style.Animation_Toast
         }
@@ -700,11 +834,7 @@ class CustomKeyboardView @JvmOverloads constructor(
             }
             background = bg
         }
-        accentsPopupWindow = PopupWindow(
-            accentsContainer,
-            LayoutParams.WRAP_CONTENT,
-            dpToPx(52)
-        ).apply {
+        accentsPopupWindow = PopupWindow(accentsContainer, LayoutParams.WRAP_CONTENT, dpToPx(52)).apply {
             isTouchable = false
         }
     }
@@ -714,7 +844,7 @@ class CustomKeyboardView @JvmOverloads constructor(
         activeAccentIndex = -1
         accentsContainer?.removeAllViews()
 
-        chars.forEachIndexed { index, char ->
+        chars.forEach { char ->
             val tv = TextView(context).apply {
                 text = char
                 textSize = 20f
@@ -791,11 +921,12 @@ class CustomKeyboardView @JvmOverloads constructor(
     }
 
     // ---------------------------------------------------------------------------------------------
-    // Emoji View Switching
+    // Emoji & Clipboard View Switching
     // ---------------------------------------------------------------------------------------------
     private fun showEmojiKeyboard() {
         keyboardMode = KeyboardMode.EMOJI
         rowsLayout.visibility = View.GONE
+        clipboardView?.visibility = View.GONE
 
         if (emojiKeyboardView == null) {
             emojiKeyboardView = EmojiKeyboardView(context).apply {
@@ -831,9 +962,37 @@ class CustomKeyboardView @JvmOverloads constructor(
         }
     }
 
+    private fun showClipboardView() {
+        rowsLayout.visibility = View.GONE
+        emojiKeyboardView?.visibility = View.GONE
+
+        if (clipboardView == null) {
+            clipboardView = ClipboardView(context).apply {
+                applyTheme(currentTheme)
+                setClipboardListener(object : ClipboardView.ClipboardListener {
+                    override fun onClipSelected(text: String) {
+                        performHapticFeedback()
+                        actionListener?.onPasteClipboard(text)
+                        showAlphaKeyboard()
+                    }
+
+                    override fun onCloseClipboard() {
+                        performHapticFeedback()
+                        showAlphaKeyboard()
+                    }
+                })
+            }
+            keyboardContainer.addView(clipboardView)
+        } else {
+            clipboardView?.refreshClips()
+            clipboardView?.visibility = View.VISIBLE
+        }
+    }
+
     private fun showAlphaKeyboard() {
         keyboardMode = KeyboardMode.ALPHA
         emojiKeyboardView?.visibility = View.GONE
+        clipboardView?.visibility = View.GONE
         rowsLayout.visibility = View.VISIBLE
         renderKeyboardLayout()
     }
