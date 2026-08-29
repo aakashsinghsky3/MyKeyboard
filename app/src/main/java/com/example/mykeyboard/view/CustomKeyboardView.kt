@@ -528,6 +528,12 @@ class CustomKeyboardView @JvmOverloads constructor(
     }
 
     private fun createKeyView(key: KeyModel): View {
+        if (key.type == KeyType.SPACER) {
+            return View(context).apply {
+                layoutParams = LayoutParams(0, LayoutParams.MATCH_PARENT, key.weight)
+            }
+        }
+
         val isTablet = context.resources.configuration.smallestScreenWidthDp >= 600
         val keyMarginH = if (isTablet) dpToPx(4) else dpToPx(3)
         val keyLayout = FrameLayout(context).apply {
@@ -630,26 +636,53 @@ class CustomKeyboardView @JvmOverloads constructor(
                 keyLayout.addView(modeTv)
             }
             else -> {
-                val mainTv = TextView(context).apply {
-                    val charText = if (shiftState != ShiftState.UNSHIFTED) key.shiftText else key.primaryText
-                    text = charText
-                    textSize = 20f
-                    gravity = Gravity.CENTER
-                    setTextColor(currentTheme.textColorPrimary)
-                    layoutParams = FrameLayout.LayoutParams(FrameLayout.LayoutParams.MATCH_PARENT, FrameLayout.LayoutParams.MATCH_PARENT)
-                }
-                keyLayout.addView(mainTv)
-
-                if (key.altText.isNotEmpty() && keyboardMode == KeyboardMode.ALPHA) {
-                    val altTv = TextView(context).apply {
-                        text = key.altText
-                        textSize = 9f
-                        gravity = Gravity.END or Gravity.TOP
-                        setTextColor(currentTheme.textColorSecondary)
-                        setPadding(0, dpToPx(3), dpToPx(4), 0)
+                if (keyboardMode == KeyboardMode.DIALPAD) {
+                    val container = LinearLayout(context).apply {
+                        orientation = LinearLayout.VERTICAL
+                        gravity = Gravity.CENTER
                         layoutParams = FrameLayout.LayoutParams(FrameLayout.LayoutParams.MATCH_PARENT, FrameLayout.LayoutParams.MATCH_PARENT)
                     }
-                    keyLayout.addView(altTv)
+                    val mainTv = TextView(context).apply {
+                        text = key.primaryText
+                        textSize = 18f
+                        gravity = Gravity.CENTER
+                        setTextColor(currentTheme.textColorPrimary)
+                        typeface = Typeface.DEFAULT_BOLD
+                    }
+                    container.addView(mainTv)
+
+                    if (key.altText.isNotEmpty()) {
+                        val subTv = TextView(context).apply {
+                            text = key.altText
+                            textSize = 9f
+                            gravity = Gravity.CENTER
+                            setTextColor(currentTheme.textColorSecondary)
+                        }
+                        container.addView(subTv)
+                    }
+                    keyLayout.addView(container)
+                } else {
+                    val mainTv = TextView(context).apply {
+                        val charText = if (shiftState != ShiftState.UNSHIFTED) key.shiftText else key.primaryText
+                        text = charText
+                        textSize = 20f
+                        gravity = Gravity.CENTER
+                        setTextColor(currentTheme.textColorPrimary)
+                        layoutParams = FrameLayout.LayoutParams(FrameLayout.LayoutParams.MATCH_PARENT, FrameLayout.LayoutParams.MATCH_PARENT)
+                    }
+                    keyLayout.addView(mainTv)
+
+                    if (key.altText.isNotEmpty() && keyboardMode == KeyboardMode.ALPHA) {
+                        val altTv = TextView(context).apply {
+                            text = key.altText
+                            textSize = 9f
+                            gravity = Gravity.END or Gravity.TOP
+                            setTextColor(currentTheme.textColorSecondary)
+                            setPadding(0, dpToPx(3), dpToPx(4), 0)
+                            layoutParams = FrameLayout.LayoutParams(FrameLayout.LayoutParams.MATCH_PARENT, FrameLayout.LayoutParams.MATCH_PARENT)
+                        }
+                        keyLayout.addView(altTv)
+                    }
                 }
             }
         }
@@ -806,7 +839,7 @@ class CustomKeyboardView @JvmOverloads constructor(
             KeyType.SETTINGS -> {
                 actionListener?.onOpenSettings()
             }
-            KeyType.BACKSPACE -> {}
+            KeyType.BACKSPACE, KeyType.SPACER -> {}
         }
     }
 

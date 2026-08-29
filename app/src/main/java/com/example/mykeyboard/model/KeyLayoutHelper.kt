@@ -10,7 +10,8 @@ enum class KeyType {
     EMOJI,
     SETTINGS,
     COMMA,
-    PERIOD
+    PERIOD,
+    SPACER
 }
 
 enum class ShiftState {
@@ -38,95 +39,64 @@ data class KeyModel(
 )
 
 object KeyLayoutHelper {
-
-    private val LONG_PRESS_MAP = mapOf(
-        "a" to listOf("à", "á", "â", "ä", "æ", "ã", "å", "ā", "ª"),
-        "c" to listOf("ç", "ć", "č"),
-        "e" to listOf("è", "é", "ê", "ë", "ē", "ė", "ę"),
-        "i" to listOf("ì", "í", "î", "ï", "ī", "į"),
-        "l" to listOf("ł"),
-        "n" to listOf("ñ", "ń"),
-        "o" to listOf("ò", "ó", "ô", "ö", "õ", "ø", "ō", "œ"),
-        "s" to listOf("ß", "ś", "š", "$"),
-        "u" to listOf("ù", "ú", "û", "ü", "ū", "ų"),
-        "y" to listOf("ÿ", "ý"),
-        "z" to listOf("ź", "ż", "ž"),
-        "0" to listOf("º", "⁰", "∅"),
-        "1" to listOf("¹", "½", "⅓", "¼", "⅛"),
-        "2" to listOf("²", "⅔"),
-        "3" to listOf("³", "¾", "⅜"),
-        "4" to listOf("⁴"),
-        "5" to listOf("⁵", "⅝"),
-        "6" to listOf("⁶"),
-        "7" to listOf("⁷", "⅞"),
-        "8" to listOf("⁸"),
-        "9" to listOf("⁹"),
-        "$" to listOf("€", "£", "¥", "₹", "¢", "₱", "₩"),
-        "?" to listOf("¿"),
-        "!" to listOf("¡"),
-        "%" to listOf("‰"),
-        "-" to listOf("—", "–", "·"),
-        "\"" to listOf("“", "”", "«", "»", "„"),
-        "'" to listOf("‘", "’", "‚", "`")
-    )
-
-    fun getAlphaRows(includeNumberRow: Boolean): List<List<KeyModel>> {
+    fun getAlphaRows(isNumberRowEnabled: Boolean): List<List<KeyModel>> {
         val rows = mutableListOf<List<KeyModel>>()
 
-        if (includeNumberRow) {
+        // Optional Number Row
+        if (isNumberRowEnabled) {
             val numRow = listOf("1", "2", "3", "4", "5", "6", "7", "8", "9", "0").map {
-                KeyModel(
-                    primaryText = it,
-                    shiftText = it,
-                    popupChars = LONG_PRESS_MAP[it] ?: emptyList()
-                )
+                KeyModel(primaryText = it, popupChars = LONG_PRESS_MAP[it] ?: emptyList())
             }
             rows.add(numRow)
         }
 
         // Row 1: q w e r t y u i o p
         val r1Chars = listOf("q", "w", "e", "r", "t", "y", "u", "i", "o", "p")
-        val altRow1 = listOf("1", "2", "3", "4", "5", "6", "7", "8", "9", "0")
-        rows.add(r1Chars.mapIndexed { idx, ch ->
+        val r1Alt = listOf("1", "2", "3", "4", "5", "6", "7", "8", "9", "0")
+        val r1 = r1Chars.mapIndexed { idx, char ->
             KeyModel(
-                primaryText = ch,
-                altText = altRow1.getOrElse(idx) { "" },
-                popupChars = (LONG_PRESS_MAP[ch] ?: emptyList())
+                primaryText = char,
+                altText = r1Alt[idx],
+                popupChars = LONG_PRESS_MAP[char] ?: emptyList()
             )
-        })
+        }
+        rows.add(r1)
 
         // Row 2: a s d f g h j k l
         val r2Chars = listOf("a", "s", "d", "f", "g", "h", "j", "k", "l")
-        val altRow2 = listOf("@", "#", "$", "%", "&", "-", "+", "(", ")")
-        rows.add(r2Chars.mapIndexed { idx, ch ->
+        val r2Alt = listOf("@", "#", "$", "%", "&", "-", "+", "(", ")")
+        val r2 = r2Chars.mapIndexed { idx, char ->
             KeyModel(
-                primaryText = ch,
-                altText = altRow2.getOrElse(idx) { "" },
-                popupChars = (LONG_PRESS_MAP[ch] ?: emptyList())
+                primaryText = char,
+                altText = r2Alt[idx],
+                popupChars = LONG_PRESS_MAP[char] ?: emptyList()
             )
-        })
+        }
+        rows.add(r2)
 
         // Row 3: [SHIFT] z x c v b n m [BACKSPACE]
         val r3 = mutableListOf<KeyModel>()
         r3.add(KeyModel(primaryText = "SHIFT", type = KeyType.SHIFT, weight = 1.5f))
         val r3Chars = listOf("z", "x", "c", "v", "b", "n", "m")
-        val altRow3 = listOf("*", "\"", "'", ":", ";", "!", "?")
-        r3.addAll(r3Chars.mapIndexed { idx, ch ->
-            KeyModel(
-                primaryText = ch,
-                altText = altRow3.getOrElse(idx) { "" },
-                popupChars = (LONG_PRESS_MAP[ch] ?: emptyList())
+        val r3Alt = listOf("*", "\"", "'", ":", ";", "!", "?")
+        r3Chars.forEachIndexed { idx, char ->
+            r3.add(
+                KeyModel(
+                    primaryText = char,
+                    altText = r3Alt[idx],
+                    popupChars = LONG_PRESS_MAP[char] ?: emptyList()
+                )
             )
-        })
+        }
         r3.add(KeyModel(primaryText = "DEL", type = KeyType.BACKSPACE, weight = 1.5f))
         rows.add(r3)
 
         // Row 4: [?123] [EMOJI] [COMMA] [SPACE] [PERIOD] [ENTER]
         val r4 = listOf(
-            KeyModel(primaryText = "?123", type = KeyType.MODE_CHANGE, weight = 1.4f),
+            KeyModel(primaryText = "?123", type = KeyType.MODE_CHANGE, weight = 1.5f),
             KeyModel(primaryText = "😀", type = KeyType.EMOJI, weight = 1.1f),
-            KeyModel(primaryText = ",", shiftText = ",", type = KeyType.COMMA, weight = 1.0f),
-            KeyModel(primaryText = " ", shiftText = " ", type = KeyType.SPACE, weight = 4.0f),
+            KeyModel(primaryText = ",", type = KeyType.COMMA, weight = 1.0f),
+            KeyModel(primaryText = " ", type = KeyType.SPACE, weight = 4.0f),
             KeyModel(
                 primaryText = ".",
                 shiftText = ".",
@@ -178,7 +148,7 @@ object KeyLayoutHelper {
                 KeyModel(primaryText = ",", type = KeyType.COMMA, weight = 1.0f),
                 KeyModel(primaryText = " ", type = KeyType.SPACE, weight = 4.0f),
                 KeyModel(primaryText = ".", popupChars = listOf("...", "!", "?"), type = KeyType.PERIOD, weight = 1.0f),
-                KeyModel(primaryText = "ENTER", type = KeyType.ENTER, weight = 1.5f)
+                KeyModel(primaryText = "ENTER", type = KeyType.ENTER, weight = 1.4f)
             )
         )
 
@@ -194,20 +164,22 @@ object KeyLayoutHelper {
         })
 
         // Row 1: ~ ` | • √ π ÷ × ¶ ∆
-        rows.add(listOf("~", "`", "|", "•", "√", "π", "÷", "×", "¶", "∆").map {
-            KeyModel(primaryText = it)
+        val r1Chars = listOf("~", "`", "|", "•", "√", "π", "÷", "×", "¶", "∆")
+        rows.add(r1Chars.map {
+            KeyModel(primaryText = it, popupChars = LONG_PRESS_MAP[it] ?: emptyList())
         })
 
-        // Row 2: £ € ¥ ¢ ^ ° = § « »
-        rows.add(listOf("£", "€", "¥", "¢", "^", "°", "=", "§", "«", "»").map {
-            KeyModel(primaryText = it)
+        // Row 2: £ ¢ € ¥ ₳ § © ® ™ ✓
+        val r2Chars = listOf("£", "¢", "€", "¥", "₳", "§", "©", "®", "™", "✓")
+        rows.add(r2Chars.map {
+            KeyModel(primaryText = it, popupChars = LONG_PRESS_MAP[it] ?: emptyList())
         })
 
-        // Row 3: [?123] © ® ™ ✓ [ ] < > % [BACKSPACE]
+        // Row 3: [?123] ^ ° = { } \ < > [BACKSPACE]
         val r3 = mutableListOf<KeyModel>()
         r3.add(KeyModel(primaryText = "?123", type = KeyType.MODE_CHANGE, weight = 1.4f))
-        listOf("©", "®", "™", "✓", "[", "]", "<", ">", "%").forEach {
-            r3.add(KeyModel(primaryText = it))
+        listOf("^", "°", "=", "{", "}", "\\", "<", ">").forEach {
+            r3.add(KeyModel(primaryText = it, popupChars = LONG_PRESS_MAP[it] ?: emptyList()))
         }
         r3.add(KeyModel(primaryText = "DEL", type = KeyType.BACKSPACE, weight = 1.4f))
         rows.add(r3)
@@ -219,8 +191,8 @@ object KeyLayoutHelper {
                 KeyModel(primaryText = "😀", type = KeyType.EMOJI, weight = 1.1f),
                 KeyModel(primaryText = ",", type = KeyType.COMMA, weight = 1.0f),
                 KeyModel(primaryText = " ", type = KeyType.SPACE, weight = 4.0f),
-                KeyModel(primaryText = ".", type = KeyType.PERIOD, weight = 1.0f),
-                KeyModel(primaryText = "ENTER", type = KeyType.ENTER, weight = 1.5f)
+                KeyModel(primaryText = ".", popupChars = listOf("...", "!", "?"), type = KeyType.PERIOD, weight = 1.0f),
+                KeyModel(primaryText = "ENTER", type = KeyType.ENTER, weight = 1.4f)
             )
         )
 
@@ -233,36 +205,44 @@ object KeyLayoutHelper {
         // Row 1: 1, 2 (ABC), 3 (DEF)
         rows.add(
             listOf(
-                KeyModel(primaryText = "1", altText = "", popupChars = listOf("¹")),
-                KeyModel(primaryText = "2", altText = "ABC", popupChars = listOf("²")),
-                KeyModel(primaryText = "3", altText = "DEF", popupChars = listOf("³"))
+                KeyModel(primaryText = "", type = KeyType.SPACER, weight = 1.0f),
+                KeyModel(primaryText = "1", altText = "", popupChars = listOf("¹"), weight = 2.0f),
+                KeyModel(primaryText = "2", altText = "ABC", popupChars = listOf("²"), weight = 2.0f),
+                KeyModel(primaryText = "3", altText = "DEF", popupChars = listOf("³"), weight = 2.0f),
+                KeyModel(primaryText = "", type = KeyType.SPACER, weight = 1.0f)
             )
         )
 
         // Row 2: 4 (GHI), 5 (JKL), 6 (MNO)
         rows.add(
             listOf(
-                KeyModel(primaryText = "4", altText = "GHI", popupChars = listOf("⁴")),
-                KeyModel(primaryText = "5", altText = "JKL", popupChars = listOf("⁵")),
-                KeyModel(primaryText = "6", altText = "MNO", popupChars = listOf("⁶"))
+                KeyModel(primaryText = "", type = KeyType.SPACER, weight = 1.0f),
+                KeyModel(primaryText = "4", altText = "GHI", popupChars = listOf("⁴"), weight = 2.0f),
+                KeyModel(primaryText = "5", altText = "JKL", popupChars = listOf("⁵"), weight = 2.0f),
+                KeyModel(primaryText = "6", altText = "MNO", popupChars = listOf("⁶"), weight = 2.0f),
+                KeyModel(primaryText = "", type = KeyType.SPACER, weight = 1.0f)
             )
         )
 
         // Row 3: 7 (PQRS), 8 (TUV), 9 (WXYZ)
         rows.add(
             listOf(
-                KeyModel(primaryText = "7", altText = "PQRS", popupChars = listOf("⁷")),
-                KeyModel(primaryText = "8", altText = "TUV", popupChars = listOf("⁸")),
-                KeyModel(primaryText = "9", altText = "WXYZ", popupChars = listOf("⁹"))
+                KeyModel(primaryText = "", type = KeyType.SPACER, weight = 1.0f),
+                KeyModel(primaryText = "7", altText = "PQRS", popupChars = listOf("⁷"), weight = 2.0f),
+                KeyModel(primaryText = "8", altText = "TUV", popupChars = listOf("⁸"), weight = 2.0f),
+                KeyModel(primaryText = "9", altText = "WXYZ", popupChars = listOf("⁹"), weight = 2.0f),
+                KeyModel(primaryText = "", type = KeyType.SPACER, weight = 1.0f)
             )
         )
 
         // Row 4: *, 0 (+), #
         rows.add(
             listOf(
-                KeyModel(primaryText = "*", altText = ""),
-                KeyModel(primaryText = "0", altText = "+", popupChars = listOf("+")),
-                KeyModel(primaryText = "#", altText = "")
+                KeyModel(primaryText = "", type = KeyType.SPACER, weight = 1.0f),
+                KeyModel(primaryText = "*", altText = "", weight = 2.0f),
+                KeyModel(primaryText = "0", altText = "+", popupChars = listOf("+"), weight = 2.0f),
+                KeyModel(primaryText = "#", altText = "", weight = 2.0f),
+                KeyModel(primaryText = "", type = KeyType.SPACER, weight = 1.0f)
             )
         )
 
@@ -279,4 +259,28 @@ object KeyLayoutHelper {
 
         return rows
     }
+
+    private val LONG_PRESS_MAP = mapOf(
+        "a" to listOf("à", "á", "â", "ä", "æ", "ã", "å", "ā"),
+        "c" to listOf("ç", "ć", "č"),
+        "e" to listOf("è", "é", "ê", "ë", "ē", "ė", "ę"),
+        "i" to listOf("î", "ï", "í", "ī", "į", "ì"),
+        "l" to listOf("ł"),
+        "n" to listOf("ñ", "ń"),
+        "o" to listOf("ô", "ö", "ò", "ó", "œ", "ø", "ō", "õ"),
+        "s" to listOf("ß", "ś", "š"),
+        "u" to listOf("û", "ü", "ù", "ú", "ū"),
+        "y" to listOf("ÿ"),
+        "z" to listOf("ž", "ź", "ż"),
+        "1" to listOf("1", "½", "⅓", "¼", "⅛", "¹"),
+        "2" to listOf("2", "⅔", "²"),
+        "3" to listOf("3", "¾", "⅜", "³"),
+        "4" to listOf("4", "⁴"),
+        "5" to listOf("5", "⅝", "⁵"),
+        "6" to listOf("6", "⁶"),
+        "7" to listOf("7", "⅞", "⁷"),
+        "8" to listOf("8", "⁸"),
+        "9" to listOf("9", "⁹"),
+        "0" to listOf("0", "ⁿ", "∅", "⁰")
+    )
 }
