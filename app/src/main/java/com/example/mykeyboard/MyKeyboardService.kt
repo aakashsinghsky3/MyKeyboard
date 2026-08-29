@@ -120,6 +120,22 @@ class MyKeyboardService : InputMethodService(),
         recordCurrentSnapshot()
     }
 
+    private fun getTrailingEmojiSequenceLength(text: String): Int {
+        if (text.isEmpty()) return 0
+
+        val emojiRegex = Regex(
+            "((?:[\\u2600-\\u27BF\\uD83C-\\uD83E][\\uDC00-\\uDFFF]|[\\u2600-\\u27BF])" +
+            "(?:[\\uD83C][\\uDFFB-\\uDFFF])?" +
+            "(?:\\uFE0F)?" +
+            "(?:\\u200D(?:[\\u2600-\\u27BF\\uD83C-\\uD83E][\\uDC00-\\uDFFF]|[\\u2600-\\u27BF])" +
+            "(?:[\\uD83C][\\uDFFB-\\uDFFF])?" +
+            "(?:\\uFE0F)?)*)$"
+        )
+
+        val match = emojiRegex.find(text)
+        return match?.value?.length ?: 0
+    }
+
     override fun onBackspace() {
         val ic = currentInputConnection ?: return
         recordCurrentSnapshot()
@@ -128,11 +144,16 @@ class MyKeyboardService : InputMethodService(),
         if (!TextUtils.isEmpty(selectedText)) {
             ic.commitText("", 1)
         } else {
-            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.N) {
+            val textBefore = ic.getTextBeforeCursor(20, 0)?.toString() ?: ""
+            val emojiSeqLen = getTrailingEmojiSequenceLength(textBefore)
+
+            if (emojiSeqLen > 0) {
+                ic.deleteSurroundingText(emojiSeqLen, 0)
+            } else if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.N) {
                 ic.deleteSurroundingTextInCodePoints(1, 0)
             } else {
-                val textBefore = ic.getTextBeforeCursor(2, 0)
-                if (!TextUtils.isEmpty(textBefore) && Character.isSurrogate(textBefore!!.last())) {
+                val lastChar = textBefore.lastOrNull()
+                if (lastChar != null && Character.isSurrogate(lastChar) && textBefore.length >= 2) {
                     ic.deleteSurroundingText(2, 0)
                 } else {
                     ic.deleteSurroundingText(1, 0)
