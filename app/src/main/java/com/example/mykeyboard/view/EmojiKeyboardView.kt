@@ -82,8 +82,7 @@ class EmojiKeyboardView @JvmOverloads constructor(
             }
         })
 
-        val isTablet = context.resources.configuration.smallestScreenWidthDp >= 600
-        val initialBottomPad = if (isTablet) dpToPx(48) else dpToPx(20)
+        val initialBottomPad = getCalculatedBottomPadding()
 
         // 3. Bottom Bar (ABC, Space, Backspace)
         bottomBar = LinearLayout(context).apply {
@@ -97,8 +96,7 @@ class EmojiKeyboardView @JvmOverloads constructor(
 
         androidx.core.view.ViewCompat.setOnApplyWindowInsetsListener(this) { _, windowInsets ->
             val navInsets = windowInsets.getInsets(androidx.core.view.WindowInsetsCompat.Type.navigationBars())
-            val minBottom = if (isTablet) dpToPx(48) else dpToPx(20)
-            val finalBottom = maxOf(navInsets.bottom, minBottom)
+            val finalBottom = maxOf(navInsets.bottom, getCalculatedBottomPadding())
             bottomBar.layoutParams = LayoutParams(LayoutParams.MATCH_PARENT, dpToPx(48) + finalBottom)
             bottomBar.setPadding(dpToPx(6), dpToPx(4), dpToPx(6), finalBottom)
             windowInsets
@@ -342,6 +340,18 @@ class EmojiKeyboardView @JvmOverloads constructor(
 
             return textView
         }
+    }
+
+    private fun getNavigationBarHeight(): Int {
+        val resourceId = context.resources.getIdentifier("navigation_bar_height", "dimen", "android")
+        return if (resourceId > 0) context.resources.getDimensionPixelSize(resourceId) else 0
+    }
+
+    private fun getCalculatedBottomPadding(): Int {
+        val isTablet = context.resources.configuration.smallestScreenWidthDp >= 600
+        val sysNavHeight = getNavigationBarHeight()
+        val minPad = if (isTablet) dpToPx(56) else dpToPx(48)
+        return maxOf(sysNavHeight, minPad) + dpToPx(8)
     }
 
     private fun dpToPx(dp: Int): Int {

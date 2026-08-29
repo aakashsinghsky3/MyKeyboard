@@ -12,17 +12,9 @@ object EmojiData {
 
     val categories: List<EmojiCategory> = listOf(
         EmojiCategory(
-            name = "✨ Anshika & Akriti Favorites",
+            name = "✨ Favorites",
             iconResId = R.drawable.ic_tab_smiley,
             emojis = listOf(
-                "Anshika", "Akriti",
-                "✨ 𝒜𝓃𝓈𝒽𝒾𝓀𝒶 ✨", "🌸 𝒜𝓀𝓇𝒾𝓉𝒾 🌸",
-                "👑 𝔸𝕟𝕤𝕙𝕚𝕜𝕒 👑", "💖 𝔸𝕜𝕣𝕚𝕥𝕚 💖",
-                "💎 𝓐𝓷𝓼𝓱𝓲𝓴𝓪 💎", "🦋 𝓐𝓴𝓻𝓲𝓽𝓲 🦋",
-                "✦ ᴀɴꜱʜɪᴋᴀ ✦", "✦ ᴀᴋʀɪᴛɪ ✦",
-                "🎀 Ⓐⓝⓢⓗⓘⓚⓐ 🎀", "🎀 Ⓐⓚⓡⓘⓣⓘ 🎀",
-                "༺ Anshika ༻", "༺ Akriti ༻",
-                "★ Anshika ★", "★ Akriti ★",
                 "💖", "✨", "👑", "🌸", "💎", "🫶", "🦋", "🎀",
                 "🌷", "🌹", "🌺", "🌻", "🪷", "🌼", "💐", "🌟",
                 "💫", "🪄", "🪽", "🕊️", "🦄", "🧸", "🎨", "🪞",
