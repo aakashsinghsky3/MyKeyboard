@@ -10,65 +10,92 @@ object ProfessionalToneEngine {
     private val RULES = listOf(
         // 1. Sick & Leave Requests
         PatternRule(
-            keywords = listOf("sick", "not well", "unwell", "fever", "cant come", "cannot come", "not coming", "taking leave"),
+            keywords = listOf("sick", "ill", "fever", "unwell", "cant come", "cannot come", "not coming", "taking leave", "absent", "off today", "doctor"),
             professionalPhrases = listOf(
                 "I am unable to attend work today due to health reasons.",
                 "I am currently feeling unwell and will be taking sick leave today.",
-                "Please accept this note regarding my absence today due to illness."
+                "Please accept this notification regarding my absence today due to illness."
             )
         ),
-        // 2. Urgent & Document Requests
+        // 2. Document & File Requests
         PatternRule(
-            keywords = listOf("send me", "give me", "asap", "fast", "urgent", "report", "file"),
+            keywords = listOf("send", "give", "asap", "fast", "urgent", "report", "file", "doc", "pdf", "share", "need this", "attachment"),
             professionalPhrases = listOf(
                 "Could you please share the requested details at your earliest convenience?",
-                "Kindly provide the relevant update when you have a moment.",
-                "I would appreciate it if you could forward the files at your convenience."
+                "Kindly provide the relevant file or report when you have a moment.",
+                "I would appreciate it if you could forward the relevant files."
             )
         ),
-        // 3. Postponing & Scheduling
+        // 3. Postponing & Busy State
         PatternRule(
-            keywords = listOf("do it later", "will do later", "later", "not now", "busy right now", "after some time"),
+            keywords = listOf("later", "not now", "busy", "doing something", "after some time", "will do later", "too busy", "free later"),
             professionalPhrases = listOf(
+                "I am currently occupied with a pressing task and will revert shortly.",
                 "I will address this matter at the earliest opportunity.",
-                "I am currently prioritizing an urgent task and will revert shortly.",
-                "I will follow up on this item as soon as possible."
+                "I am currently prioritizing another item and will follow up soon."
             )
         ),
-        // 4. Apologies & Late Responses
+        // 4. Apologies & Delays
         PatternRule(
-            keywords = listOf("sorry", "sorry for delay", "late reply", "sorry late", "delay"),
+            keywords = listOf("sorry", "late", "delay", "delayed", "stuck", "traffic", "sorry for delay", "late reply"),
             professionalPhrases = listOf(
                 "Apologies for the delayed response.",
                 "Thank you for your patience; regarding your query...",
                 "I apologize for the delay in getting back to you."
             )
         ),
-        // 5. Thanks & Appreciation
+        // 5. Thanks & Gratitude
         PatternRule(
-            keywords = listOf("thanks", "thx", "thanks bro", "thank you bro", "thx bro"),
+            keywords = listOf("thanks", "thx", "thank", "thank you", "appreciate", "bro"),
             professionalPhrases = listOf(
                 "Thank you very much for your assistance. Best regards.",
-                "Much appreciated. Thank you for your support.",
-                "Thank you for your prompt help with this."
+                "Much appreciated. Thank you for your valuable support.",
+                "Thank you for your prompt help with this item."
             )
         ),
-        // 6. Inquiries & Progress Checks
+        // 6. Status & Progress Checks
         PatternRule(
-            keywords = listOf("kya kar rahe ho", "kya hua", "what are you doing", "status", "update", "progress"),
+            keywords = listOf("status", "update", "progress", "what happened", "kya hua", "kya kar", "where is", "any news"),
             professionalPhrases = listOf(
-                "Hope you are doing well. Could you please provide a status update?",
+                "Hope you are well. Could you please provide a status update on this?",
                 "I am writing to inquire about the progress of this task.",
                 "Please let me know if there are any updates regarding this matter."
             )
         ),
         // 7. Meetings & Calls
         PatternRule(
-            keywords = listOf("call me", "ping me", "meet tomorrow", "sync", "talk", "free"),
+            keywords = listOf("call", "ping", "talk", "meet", "sync", "discussion", "free for call"),
             professionalPhrases = listOf(
                 "Please let me know a suitable time for a brief call.",
                 "Would tomorrow be convenient for a quick sync?",
                 "Feel free to connect at your earliest convenience."
+            )
+        ),
+        // 8. Confirmation & Acceptance
+        PatternRule(
+            keywords = listOf("ok", "okay", "fine", "sure", "done", "got it", "agreed", "cool"),
+            professionalPhrases = listOf(
+                "Acknowledged. I will proceed accordingly.",
+                "Thank you for the update. Confirmed.",
+                "That sounds appropriate. I will move forward with this."
+            )
+        ),
+        // 9. Inability & Rejection
+        PatternRule(
+            keywords = listOf("cant", "cannot", "impossible", "no way", "wont", "unable", "not possible"),
+            professionalPhrases = listOf(
+                "Regrettably, I am unable to proceed with this request at present.",
+                "Due to prior commitments, I will be unable to accommodate this.",
+                "I apologize, but this falls outside our current capacity."
+            )
+        ),
+        // 10. Hinglish / Casual Phrases
+        PatternRule(
+            keywords = listOf("kya", "kaise", "kaha", "kab", "batao", "suno", "bhai", "yaar", "ghar", "kaam"),
+            professionalPhrases = listOf(
+                "Hope you are doing well. Please let me know your current status.",
+                "Could you please clarify this requirement when convenient?",
+                "I am following up regarding our previous discussion."
             )
         )
     )
@@ -98,9 +125,15 @@ object ProfessionalToneEngine {
         }
 
         // 3. Fallback corporate greetings/phrases if no specific match
-        if (results.isEmpty()) {
-            results.add("Please let me know if any further information is needed.")
-            results.add("Looking forward to your response. Best regards.")
+        if (results.size < 3) {
+            val fallbacks = listOf(
+                "Please let me know if any further information is needed.",
+                "Looking forward to your response. Best regards.",
+                "Thank you for your attention to this matter."
+            )
+            fallbacks.forEach {
+                if (!results.contains(it)) results.add(it)
+            }
         }
 
         return results.take(3)

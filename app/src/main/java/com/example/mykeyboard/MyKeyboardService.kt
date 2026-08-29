@@ -229,16 +229,19 @@ class MyKeyboardService : InputMethodService(),
 
     override fun onProfessionalRephrase() {
         val ic = currentInputConnection ?: return
-        val textBefore = ic.getTextBeforeCursor(1000, 0)?.toString() ?: ""
-        val cleanText = textBefore.trim()
-        if (cleanText.isEmpty()) {
+        val fullText = ic.getTextBeforeCursor(1000, 0)?.toString() ?: ""
+        val activeSentence = fullText.split(Regex("[.\\n?!]")).lastOrNull()?.trim() ?: fullText.trim()
+        val textToRephrase = if (activeSentence.isNotEmpty()) activeSentence else fullText.trim()
+
+        if (textToRephrase.isEmpty()) {
             Toast.makeText(this, "Type a sentence first, then tap 💼 Professional Tone!", Toast.LENGTH_SHORT).show()
             return
         }
 
-        val options = ProfessionalToneEngine.getProfessionalRephrasings(cleanText)
+        val options = ProfessionalToneEngine.getProfessionalRephrasings(textToRephrase)
         if (options.isNotEmpty()) {
-            keyboardView?.showProfessionalSuggestions(cleanText, options)
+            Toast.makeText(this, "💼 Professional Corporate Suggestions Ready", Toast.LENGTH_SHORT).show()
+            keyboardView?.showProfessionalSuggestions(textToRephrase, options)
         }
     }
 
