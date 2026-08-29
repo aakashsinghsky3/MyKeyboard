@@ -2,6 +2,8 @@ package com.example.mykeyboard
 
 import android.content.Context
 import android.content.Intent
+import android.graphics.Bitmap
+import android.graphics.BitmapFactory
 import android.graphics.Color
 import android.graphics.drawable.GradientDrawable
 import android.net.Uri
@@ -221,17 +223,55 @@ class MainActivity : AppCompatActivity() {
     private fun saveCustomBackground(uri: Uri) {
         try {
             val inputStream = contentResolver.openInputStream(uri) ?: return
+            val originalBitmap = BitmapFactory.decodeStream(inputStream)
+            inputStream.close()
+            if (originalBitmap == null) {
+                Toast.makeText(this, "Unable to decode image", Toast.LENGTH_SHORT).show()
+                return
+            }
+
+            val croppedBitmap = cropToKeyboardRatio(originalBitmap)
             val file = File(filesDir, "custom_keyboard_bg.png")
             val outputStream = FileOutputStream(file)
-            inputStream.copyTo(outputStream)
-            inputStream.close()
+            croppedBitmap.compress(Bitmap.CompressFormat.PNG, 90, outputStream)
             outputStream.close()
 
+            if (croppedBitmap != originalBitmap) {
+                originalBitmap.recycle()
+            }
+
             preferences.customBgPath = file.absolutePath
-            Toast.makeText(this, "Custom photo background applied! ✓", Toast.LENGTH_SHORT).show()
+            Toast.makeText(this, "Custom photo background cropped & applied! ✓", Toast.LENGTH_SHORT).show()
         } catch (e: Exception) {
             Toast.makeText(this, "Failed to load photo: ${e.message}", Toast.LENGTH_SHORT).show()
         }
+    }
+
+    private fun cropToKeyboardRatio(source: Bitmap): Bitmap {
+        val targetRatio = 2.1f // Standard keyboard width-to-height ratio (~1080 x 514)
+        val srcWidth = source.width
+        val srcHeight = source.height
+        val srcRatio = srcWidth.toFloat() / srcHeight.toFloat()
+
+        val cropWidth: Int
+        val cropHeight: Int
+        val startX: Int
+        val startY: Int
+
+        if (srcRatio > targetRatio) {
+            cropHeight = srcHeight
+            cropWidth = (srcHeight * targetRatio).toInt()
+            startX = (srcWidth - cropWidth) / 2
+            startY = 0
+        } else {
+            cropWidth = srcWidth
+            cropHeight = (srcWidth / targetRatio).toInt()
+            startX = 0
+            startY = (srcHeight - cropHeight) / 2
+        }
+
+        val cropped = Bitmap.createBitmap(source, startX, startY, cropWidth, cropHeight)
+        return Bitmap.createScaledBitmap(cropped, 1080, 514, true)
     }
 
     private fun setupAutoCorrectModes() {

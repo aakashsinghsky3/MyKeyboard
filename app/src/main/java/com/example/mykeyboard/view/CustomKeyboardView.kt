@@ -199,25 +199,55 @@ class CustomKeyboardView @JvmOverloads constructor(
         renderKeyboardLayout()
     }
 
+    private var bgBitmap: Bitmap? = null
+    private val bgPaint = android.graphics.Paint(android.graphics.Paint.ANTI_ALIAS_FLAG or android.graphics.Paint.FILTER_BITMAP_FLAG)
+    private val scrimPaint = android.graphics.Paint()
+
+    override fun dispatchDraw(canvas: android.graphics.Canvas) {
+        val bmp = bgBitmap
+        if (bmp != null && !bmp.isRecycled) {
+            val viewWidth = width.toFloat()
+            val viewHeight = height.toFloat()
+            if (viewWidth > 0 && viewHeight > 0) {
+                val scale = maxOf(viewWidth / bmp.width, viewHeight / bmp.height)
+                val dx = (viewWidth - bmp.width * scale) / 2f
+                val dy = (viewHeight - bmp.height * scale) / 2f
+
+                canvas.save()
+                canvas.clipRect(0f, 0f, viewWidth, viewHeight)
+                canvas.translate(dx, dy)
+                canvas.scale(scale, scale)
+                canvas.drawBitmap(bmp, 0f, 0f, bgPaint)
+                canvas.restore()
+
+                // Contrast scrim overlay to keep keycaps readable
+                val opacity = preferences.customBgOpacity
+                val scrimAlpha = ((1f - opacity * 0.7f) * 255).toInt().coerceIn(30, 230)
+                scrimPaint.color = Color.argb(scrimAlpha, 15, 23, 42)
+                canvas.drawRect(0f, 0f, viewWidth, viewHeight, scrimPaint)
+            }
+        }
+        super.dispatchDraw(canvas)
+    }
+
     private fun applyBackgroundAndTheme() {
         val customPath = preferences.customBgPath
         if (!customPath.isNullOrEmpty() && File(customPath).exists()) {
             try {
-                val bitmap = BitmapFactory.decodeFile(customPath)
-                if (bitmap != null) {
-                    val opacity = preferences.customBgOpacity
-                    val drawable = BitmapDrawable(resources, bitmap).apply {
-                        alpha = (opacity * 255).toInt()
-                    }
-                    background = drawable
-                    suggestionContainer.setBackgroundColor(Color.argb((opacity * 200).toInt(), 20, 24, 33))
-                    return
-                }
+                bgBitmap = BitmapFactory.decodeFile(customPath)
+                background = null
+                setBackgroundColor(Color.TRANSPARENT)
+                suggestionContainer.setBackgroundColor(Color.argb(180, 15, 23, 42))
+                invalidate()
+                return
             } catch (_: Exception) {}
         }
 
+        bgBitmap = null
+        background = null
         setBackgroundColor(currentTheme.backgroundColor)
         suggestionContainer.setBackgroundColor(currentTheme.suggestionBgColor)
+        invalidate()
     }
 
     fun updatePredictions(prefix: String, previousWords: List<String>) {
