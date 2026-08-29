@@ -320,18 +320,7 @@ class CustomKeyboardView @JvmOverloads constructor(
         }
         toolbarActionsLayout.addView(settingsBtn)
 
-        // 2. Undo & Redo Buttons
-        val undoBtn = createToolbarIconButton(R.drawable.ic_undo) {
-            actionListener?.onUndo()
-        }
-        toolbarActionsLayout.addView(undoBtn)
-
-        val redoBtn = createToolbarIconButton(R.drawable.ic_redo) {
-            actionListener?.onRedo()
-        }
-        toolbarActionsLayout.addView(redoBtn)
-
-        // 3. Clipboard Manager Button
+        // 2. Clipboard Manager Button
         val clipBtn = createToolbarIconButton(R.drawable.ic_paste) {
             if (clipboardView?.visibility == View.VISIBLE) {
                 showAlphaKeyboard()
