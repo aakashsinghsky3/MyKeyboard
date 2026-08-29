@@ -39,13 +39,26 @@ class ClipboardView @JvmOverloads constructor(
     init {
         val initialBottomPad = getCalculatedBottomPadding()
         orientation = VERTICAL
-        layoutParams = LayoutParams(LayoutParams.MATCH_PARENT, dpToPx(245) + initialBottomPad)
+        layoutParams = android.view.ViewGroup.LayoutParams(
+            android.view.ViewGroup.LayoutParams.MATCH_PARENT,
+            dpToPx(245) + initialBottomPad
+        )
         setPadding(dpToPx(8), dpToPx(6), dpToPx(8), initialBottomPad)
 
         androidx.core.view.ViewCompat.setOnApplyWindowInsetsListener(this) { _, windowInsets ->
             val navInsets = windowInsets.getInsets(androidx.core.view.WindowInsetsCompat.Type.navigationBars())
             val finalBottom = maxOf(navInsets.bottom, getCalculatedBottomPadding())
-            layoutParams = LayoutParams(LayoutParams.MATCH_PARENT, dpToPx(245) + finalBottom)
+            val h = dpToPx(245) + finalBottom
+            val lp = layoutParams
+            if (lp != null) {
+                lp.height = h
+                layoutParams = lp
+            } else {
+                layoutParams = android.view.ViewGroup.LayoutParams(
+                    android.view.ViewGroup.LayoutParams.MATCH_PARENT,
+                    h
+                )
+            }
             setPadding(dpToPx(8), dpToPx(6), dpToPx(8), finalBottom)
             windowInsets
         }
@@ -135,25 +148,27 @@ class ClipboardView @JvmOverloads constructor(
     }
 
     fun refreshClips() {
-        itemsContainer.removeAllViews()
-        val clips = clipboardManager.getAllClips()
+        try {
+            itemsContainer.removeAllViews()
+            val clips = clipboardManager.getAllClips()
 
-        if (clips.isEmpty()) {
-            val emptyTv = TextView(context).apply {
-                text = "No clips in history yet.\nCopied text will automatically appear here for 1-tap pasting."
-                textSize = 13f
-                gravity = Gravity.CENTER
-                setTextColor(currentTheme.textColorSecondary)
-                setPadding(dpToPx(16), dpToPx(32), dpToPx(16), dpToPx(32))
+            if (clips.isEmpty()) {
+                val emptyTv = TextView(context).apply {
+                    text = "No clips in history yet.\nCopied text will automatically appear here for 1-tap pasting."
+                    textSize = 13f
+                    gravity = Gravity.CENTER
+                    setTextColor(currentTheme.textColorSecondary)
+                    setPadding(dpToPx(16), dpToPx(32), dpToPx(16), dpToPx(32))
+                }
+                itemsContainer.addView(emptyTv)
+                return
             }
-            itemsContainer.addView(emptyTv)
-            return
-        }
 
-        clips.forEach { clip ->
-            val card = createClipCard(clip)
-            itemsContainer.addView(card)
-        }
+            clips.forEach { clip ->
+                val card = createClipCard(clip)
+                itemsContainer.addView(card)
+            }
+        } catch (_: Exception) {}
     }
 
     private fun createClipCard(clip: ClipboardItem): View {
