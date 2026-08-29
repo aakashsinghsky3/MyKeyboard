@@ -18,6 +18,20 @@ class UserDictionaryDb(context: Context) : SQLiteOpenHelper(context, DATABASE_NA
             )
             """.trimIndent()
         )
+        preseedCustomWords(db)
+    }
+
+    override fun onOpen(db: SQLiteDatabase) {
+        super.onOpen(db)
+        preseedCustomWords(db)
+    }
+
+    private fun preseedCustomWords(db: SQLiteDatabase) {
+        try {
+            val now = System.currentTimeMillis()
+            db.execSQL("INSERT OR IGNORE INTO $TABLE_WORDS ($COL_WORD, $COL_FREQ, $COL_TIMESTAMP) VALUES ('anshika', 80, $now)")
+            db.execSQL("INSERT OR IGNORE INTO $TABLE_WORDS ($COL_WORD, $COL_FREQ, $COL_TIMESTAMP) VALUES ('akriti', 80, $now)")
+        } catch (_: Exception) {}
     }
 
     override fun onUpgrade(db: SQLiteDatabase, oldVersion: Int, newVersion: Int) {

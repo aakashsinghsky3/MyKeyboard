@@ -240,15 +240,35 @@ class EmojiKeyboardView @JvmOverloads constructor(
             } else {
                 TextView(context).apply {
                     gravity = Gravity.CENTER
-                    setTextSize(TypedValue.COMPLEX_UNIT_SP, 22f)
                     val size = dpToPx(40)
                     layoutParams = ViewGroup.LayoutParams(size, size)
-                    setPadding(0, dpToPx(2), 0, dpToPx(2))
                 }
             }
 
             val emoji = getItem(position)
             textView.text = emoji
+
+            if (emoji.length > 2) {
+                textView.setSingleLine(true)
+                textView.setTextSize(TypedValue.COMPLEX_UNIT_SP, 10.5f)
+                textView.setTypeface(android.graphics.Typeface.DEFAULT_BOLD)
+                textView.setTextColor(currentTheme.actionTextColor)
+                val bg = GradientDrawable().apply {
+                    cornerRadius = dpToPx(8).toFloat()
+                    setColor(currentTheme.keyActionColor)
+                }
+                textView.background = bg
+                val padH = dpToPx(2)
+                textView.setPadding(padH, dpToPx(4), padH, dpToPx(4))
+            } else {
+                textView.setSingleLine(false)
+                textView.setTextSize(TypedValue.COMPLEX_UNIT_SP, 22f)
+                textView.setTypeface(android.graphics.Typeface.DEFAULT)
+                textView.setTextColor(currentTheme.textColorPrimary)
+                textView.background = null
+                textView.setPadding(0, dpToPx(2), 0, dpToPx(2))
+            }
+
             textView.setOnClickListener {
                 listener?.onEmojiSelected(emoji)
             }
