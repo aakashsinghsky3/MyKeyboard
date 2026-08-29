@@ -10,6 +10,7 @@ import android.text.TextUtils
 import android.view.KeyEvent
 import android.view.View
 import android.view.inputmethod.EditorInfo
+import android.view.inputmethod.InputConnection
 import com.example.mykeyboard.engine.AutoCorrectEngine
 import com.example.mykeyboard.engine.ClipboardHistoryManager
 import com.example.mykeyboard.engine.PredictionEngine
@@ -136,6 +137,34 @@ class MyKeyboardService : InputMethodService(),
         return match?.value?.length ?: 0
     }
 
+    private fun deleteEmojiSequence(ic: InputConnection): Boolean {
+        val textBefore = ic.getTextBeforeCursor(20, 0)?.toString() ?: ""
+        if (textBefore.isEmpty()) return false
+
+        val emojiSeqLen = getTrailingEmojiSequenceLength(textBefore)
+        if (emojiSeqLen > 0) {
+            ic.deleteSurroundingText(emojiSeqLen, 0)
+
+            // Double check if lingering ZWJ or surrogate remnant is left
+            val checkText = ic.getTextBeforeCursor(4, 0)?.toString() ?: ""
+            if (checkText.isNotEmpty()) {
+                val lastC = checkText.last()
+                if (lastC == '\u200D' || lastC == '\uFE0F' || (lastC.code in 0xDFFB..0xDFFF) || Character.isSurrogate(lastC)) {
+                    val residualLen = getTrailingEmojiSequenceLength(checkText)
+                    if (residualLen > 0) {
+                        ic.deleteSurroundingText(residualLen, 0)
+                    } else if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.N) {
+                        ic.deleteSurroundingTextInCodePoints(1, 0)
+                    } else {
+                        ic.deleteSurroundingText(1, 0)
+                    }
+                }
+            }
+            return true
+        }
+        return false
+    }
+
     override fun onBackspace() {
         val ic = currentInputConnection ?: return
         recordCurrentSnapshot()
@@ -144,19 +173,17 @@ class MyKeyboardService : InputMethodService(),
         if (!TextUtils.isEmpty(selectedText)) {
             ic.commitText("", 1)
         } else {
-            val textBefore = ic.getTextBeforeCursor(20, 0)?.toString() ?: ""
-            val emojiSeqLen = getTrailingEmojiSequenceLength(textBefore)
-
-            if (emojiSeqLen > 0) {
-                ic.deleteSurroundingText(emojiSeqLen, 0)
-            } else if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.N) {
-                ic.deleteSurroundingTextInCodePoints(1, 0)
-            } else {
-                val lastChar = textBefore.lastOrNull()
-                if (lastChar != null && Character.isSurrogate(lastChar) && textBefore.length >= 2) {
-                    ic.deleteSurroundingText(2, 0)
+            val handled = deleteEmojiSequence(ic)
+            if (!handled) {
+                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.N) {
+                    ic.deleteSurroundingTextInCodePoints(1, 0)
                 } else {
-                    ic.deleteSurroundingText(1, 0)
+                    val textBefore = ic.getTextBeforeCursor(2, 0)
+                    if (!TextUtils.isEmpty(textBefore) && Character.isSurrogate(textBefore!!.last())) {
+                        ic.deleteSurroundingText(2, 0)
+                    } else {
+                        ic.deleteSurroundingText(1, 0)
+                    }
                 }
             }
         }
