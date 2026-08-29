@@ -23,7 +23,8 @@ enum class KeyboardMode {
     ALPHA,
     SYMBOLS_1,
     SYMBOLS_2,
-    EMOJI
+    EMOJI,
+    DIALPAD
 }
 
 data class KeyModel(
@@ -220,6 +221,59 @@ object KeyLayoutHelper {
                 KeyModel(primaryText = " ", type = KeyType.SPACE, weight = 4.0f),
                 KeyModel(primaryText = ".", type = KeyType.PERIOD, weight = 1.0f),
                 KeyModel(primaryText = "ENTER", type = KeyType.ENTER, weight = 1.5f)
+            )
+        )
+
+        return rows
+    }
+
+    fun getDialpadRows(): List<List<KeyModel>> {
+        val rows = mutableListOf<List<KeyModel>>()
+
+        // Row 1: 1, 2 (ABC), 3 (DEF)
+        rows.add(
+            listOf(
+                KeyModel(primaryText = "1", altText = "", popupChars = listOf("¹")),
+                KeyModel(primaryText = "2", altText = "ABC", popupChars = listOf("²")),
+                KeyModel(primaryText = "3", altText = "DEF", popupChars = listOf("³"))
+            )
+        )
+
+        // Row 2: 4 (GHI), 5 (JKL), 6 (MNO)
+        rows.add(
+            listOf(
+                KeyModel(primaryText = "4", altText = "GHI", popupChars = listOf("⁴")),
+                KeyModel(primaryText = "5", altText = "JKL", popupChars = listOf("⁵")),
+                KeyModel(primaryText = "6", altText = "MNO", popupChars = listOf("⁶"))
+            )
+        )
+
+        // Row 3: 7 (PQRS), 8 (TUV), 9 (WXYZ)
+        rows.add(
+            listOf(
+                KeyModel(primaryText = "7", altText = "PQRS", popupChars = listOf("⁷")),
+                KeyModel(primaryText = "8", altText = "TUV", popupChars = listOf("⁸")),
+                KeyModel(primaryText = "9", altText = "WXYZ", popupChars = listOf("⁹"))
+            )
+        )
+
+        // Row 4: *, 0 (+), #
+        rows.add(
+            listOf(
+                KeyModel(primaryText = "*", altText = ""),
+                KeyModel(primaryText = "0", altText = "+", popupChars = listOf("+")),
+                KeyModel(primaryText = "#", altText = "")
+            )
+        )
+
+        // Row 5: [ABC] [,] [SPACE] [.] [DEL]
+        rows.add(
+            listOf(
+                KeyModel(primaryText = "ABC", type = KeyType.MODE_CHANGE, weight = 1.4f),
+                KeyModel(primaryText = ",", type = KeyType.COMMA, weight = 1.0f),
+                KeyModel(primaryText = " ", type = KeyType.SPACE, weight = 3.0f),
+                KeyModel(primaryText = ".", type = KeyType.PERIOD, weight = 1.0f),
+                KeyModel(primaryText = "DEL", type = KeyType.BACKSPACE, weight = 1.4f)
             )
         )
 

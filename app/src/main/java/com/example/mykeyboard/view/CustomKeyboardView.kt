@@ -330,6 +330,16 @@ class CustomKeyboardView @JvmOverloads constructor(
         }
         toolbarActionsLayout.addView(clipBtn)
 
+        // 3. Phone Dialpad Button
+        val dialpadBtn = createToolbarIconButton(R.drawable.ic_numbers) {
+            if (keyboardMode == KeyboardMode.DIALPAD) {
+                showAlphaKeyboard()
+            } else {
+                showDialpadKeyboard()
+            }
+        }
+        toolbarActionsLayout.addView(dialpadBtn)
+
         // 4. 3 Candidate TextViews in CandidatesLayout
         candidateLeftTv = createCandidateTextView().apply {
             setOnClickListener {
@@ -435,6 +445,7 @@ class CustomKeyboardView @JvmOverloads constructor(
             KeyboardMode.ALPHA -> KeyLayoutHelper.getAlphaRows(preferences.isNumberRowEnabled)
             KeyboardMode.SYMBOLS_1 -> KeyLayoutHelper.getSymbols1Rows()
             KeyboardMode.SYMBOLS_2 -> KeyLayoutHelper.getSymbols2Rows()
+            KeyboardMode.DIALPAD -> KeyLayoutHelper.getDialpadRows()
             KeyboardMode.EMOJI -> emptyList()
         }
 
@@ -977,6 +988,14 @@ class CustomKeyboardView @JvmOverloads constructor(
 
     private fun showAlphaKeyboard() {
         keyboardMode = KeyboardMode.ALPHA
+        emojiKeyboardView?.visibility = View.GONE
+        clipboardView?.visibility = View.GONE
+        rowsLayout.visibility = View.VISIBLE
+        renderKeyboardLayout()
+    }
+
+    private fun showDialpadKeyboard() {
+        keyboardMode = KeyboardMode.DIALPAD
         emojiKeyboardView?.visibility = View.GONE
         clipboardView?.visibility = View.GONE
         rowsLayout.visibility = View.VISIBLE
