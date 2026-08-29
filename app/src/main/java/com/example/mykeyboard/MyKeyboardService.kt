@@ -5,6 +5,7 @@ import android.content.Context
 import android.content.Intent
 import android.content.SharedPreferences
 import android.inputmethodservice.InputMethodService
+import android.os.Build
 import android.text.TextUtils
 import android.view.KeyEvent
 import android.view.View
@@ -86,13 +87,17 @@ class MyKeyboardService : InputMethodService(),
     // ---------------------------------------------------------------------------------------------
     // Keyboard Action Listeners
     // ---------------------------------------------------------------------------------------------
+    private fun isEmojiOrSymbol(s: String): Boolean {
+        return s.any { Character.isSurrogate(it) || it.code in 0x2000..0x3300 || it.code in 0x1F000..0x1FAFF }
+    }
+
     override fun onTextKey(text: String) {
         val ic = currentInputConnection ?: return
         recordCurrentSnapshot()
 
         // If committing a suggestion with a trailing space, learn the word
         val trimmed = text.trim()
-        if (trimmed.isNotEmpty() && !trimmed.contains(" ")) {
+        if (trimmed.isNotEmpty() && !trimmed.contains(" ") && !isEmojiOrSymbol(text)) {
             predictionEngine.learnWord(trimmed)
         }
 
@@ -100,13 +105,14 @@ class MyKeyboardService : InputMethodService(),
         val textBefore = ic.getTextBeforeCursor(20, 0)?.toString() ?: ""
         val lastWord = textBefore.split(Regex("[^a-zA-Z0-9']")).lastOrNull() ?: ""
 
-        if (text.startsWith(lastWord, ignoreCase = true) && lastWord.isNotEmpty() && text.length > lastWord.length) {
+        if (!isEmojiOrSymbol(text) && text.startsWith(lastWord, ignoreCase = true) && lastWord.isNotEmpty() && text.length > lastWord.length) {
             ic.deleteSurroundingText(lastWord.length, 0)
         }
 
-        // Ensure suggestion clicks always append a spacebar
+        // Do not add trailing space for single characters or emojis
         val isSingleChar = text.length == 1
-        val toCommit = if (isSingleChar || text.endsWith(" ")) text else "$text "
+        val isEmoji = isEmojiOrSymbol(text)
+        val toCommit = if (isSingleChar || isEmoji || text.endsWith(" ")) text else "$text "
 
         ic.commitText(toCommit, 1)
         checkAutoCaps()
@@ -122,7 +128,16 @@ class MyKeyboardService : InputMethodService(),
         if (!TextUtils.isEmpty(selectedText)) {
             ic.commitText("", 1)
         } else {
-            ic.deleteSurroundingText(1, 0)
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.N) {
+                ic.deleteSurroundingTextInCodePoints(1, 0)
+            } else {
+                val textBefore = ic.getTextBeforeCursor(2, 0)
+                if (!TextUtils.isEmpty(textBefore) && Character.isSurrogate(textBefore!!.last())) {
+                    ic.deleteSurroundingText(2, 0)
+                } else {
+                    ic.deleteSurroundingText(1, 0)
+                }
+            }
         }
         checkAutoCaps()
         updatePredictions()
