@@ -20,7 +20,7 @@ class KeyboardPreferences(context: Context) {
         }
 
     var isHapticEnabled: Boolean
-        get() = prefs.getBoolean(KEY_HAPTIC, true)
+        get() = prefs.getBoolean(KEY_HAPTIC, false)
         set(value) = prefs.edit().putBoolean(KEY_HAPTIC, value).apply()
 
     var hapticDuration: Long
@@ -32,7 +32,7 @@ class KeyboardPreferences(context: Context) {
         set(value) = prefs.edit().putBoolean(KEY_SOUND, value).apply()
 
     var isPopupEnabled: Boolean
-        get() = prefs.getBoolean(KEY_POPUP, true)
+        get() = prefs.getBoolean(KEY_POPUP, false)
         set(value) = prefs.edit().putBoolean(KEY_POPUP, value).apply()
 
     var isNumberRowEnabled: Boolean
@@ -40,7 +40,7 @@ class KeyboardPreferences(context: Context) {
         set(value) = prefs.edit().putBoolean(KEY_NUMBER_ROW, value).apply()
 
     var isAutoCapsEnabled: Boolean
-        get() = prefs.getBoolean(KEY_AUTO_CAPS, true)
+        get() = prefs.getBoolean(KEY_AUTO_CAPS, false)
         set(value) = prefs.edit().putBoolean(KEY_AUTO_CAPS, value).apply()
 
     var heightScale: Float
