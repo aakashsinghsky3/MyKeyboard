@@ -1009,6 +1009,8 @@ class CustomKeyboardView @JvmOverloads constructor(
         rowsLayout.visibility = View.GONE
         clipboardView?.visibility = View.GONE
 
+        val targetContentH = getStandardContentHeight()
+
         if (emojiKeyboardView == null) {
             emojiKeyboardView = EmojiKeyboardView(context).apply {
                 applyTheme(currentTheme)
@@ -1037,16 +1039,16 @@ class CustomKeyboardView @JvmOverloads constructor(
                     }
                 })
             }
-            emojiKeyboardView?.updateFixedContentHeight(getStandardContentHeight())
             keyboardContainer.addView(
                 emojiKeyboardView,
-                FrameLayout.LayoutParams(
-                    FrameLayout.LayoutParams.MATCH_PARENT,
-                    FrameLayout.LayoutParams.WRAP_CONTENT
+                LayoutParams(
+                    LayoutParams.MATCH_PARENT,
+                    LayoutParams.WRAP_CONTENT
                 )
             )
+            emojiKeyboardView?.updateFixedContentHeight(targetContentH)
         } else {
-            emojiKeyboardView?.updateFixedContentHeight(getStandardContentHeight())
+            emojiKeyboardView?.updateFixedContentHeight(targetContentH)
             emojiKeyboardView?.visibility = View.VISIBLE
         }
     }
@@ -1060,7 +1062,6 @@ class CustomKeyboardView @JvmOverloads constructor(
         if (clipboardView == null) {
             clipboardView = ClipboardView(context).apply {
                 applyTheme(currentTheme)
-                updateFixedContentHeight(targetContentH)
                 setClipboardListener(object : ClipboardView.ClipboardListener {
                     override fun onClipSelected(text: String) {
                         performHapticFeedback()
@@ -1076,11 +1077,12 @@ class CustomKeyboardView @JvmOverloads constructor(
             }
             keyboardContainer.addView(
                 clipboardView,
-                FrameLayout.LayoutParams(
-                    FrameLayout.LayoutParams.MATCH_PARENT,
-                    FrameLayout.LayoutParams.WRAP_CONTENT
+                LayoutParams(
+                    LayoutParams.MATCH_PARENT,
+                    LayoutParams.WRAP_CONTENT
                 )
             )
+            clipboardView?.updateFixedContentHeight(targetContentH)
         } else {
             clipboardView?.updateFixedContentHeight(targetContentH)
             clipboardView?.refreshClips()
