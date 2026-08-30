@@ -675,10 +675,11 @@ class CustomKeyboardView @JvmOverloads constructor(
                     if (key.altText.isNotEmpty() && keyboardMode == KeyboardMode.ALPHA) {
                         val altTv = TextView(context).apply {
                             text = key.altText
-                            textSize = 9f
+                            textSize = 10f
                             gravity = Gravity.END or Gravity.TOP
                             setTextColor(currentTheme.textColorSecondary)
-                            setPadding(0, dpToPx(3), dpToPx(4), 0)
+                            typeface = Typeface.DEFAULT_BOLD
+                            setPadding(0, dpToPx(3), dpToPx(5), 0)
                             layoutParams = FrameLayout.LayoutParams(FrameLayout.LayoutParams.MATCH_PARENT, FrameLayout.LayoutParams.MATCH_PARENT)
                         }
                         keyLayout.addView(altTv)
@@ -712,10 +713,22 @@ class CustomKeyboardView @JvmOverloads constructor(
         var lastCursorMoveX = 0f
         var isLongPressHandled = false
         val longPressRunnable = Runnable {
-            if (key.popupChars.isNotEmpty() && preferences.isPopupEnabled) {
+            if (key.popupChars.isNotEmpty()) {
                 isLongPressHandled = true
                 dismissPopup()
-                showAccentsPopup(view, key.popupChars)
+                if (key.popupChars.size > 1) {
+                    showAccentsPopup(view, key.popupChars)
+                } else {
+                    performHapticFeedback()
+                    performAudioFeedback()
+                    actionListener?.onTextKey(key.popupChars[0])
+                }
+            } else if (key.altText.isNotEmpty()) {
+                isLongPressHandled = true
+                dismissPopup()
+                performHapticFeedback()
+                performAudioFeedback()
+                actionListener?.onTextKey(key.altText)
             }
         }
 

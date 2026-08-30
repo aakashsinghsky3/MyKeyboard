@@ -54,10 +54,11 @@ object KeyLayoutHelper {
         val r1Chars = listOf("q", "w", "e", "r", "t", "y", "u", "i", "o", "p")
         val r1Alt = listOf("1", "2", "3", "4", "5", "6", "7", "8", "9", "0")
         val r1 = r1Chars.mapIndexed { idx, char ->
+            val alt = r1Alt[idx]
             KeyModel(
                 primaryText = char,
-                altText = r1Alt[idx],
-                popupChars = LONG_PRESS_MAP[char] ?: emptyList()
+                altText = alt,
+                popupChars = getPopupCharsForKey(char, alt)
             )
         }
         rows.add(r1)
@@ -66,10 +67,11 @@ object KeyLayoutHelper {
         val r2Chars = listOf("a", "s", "d", "f", "g", "h", "j", "k", "l")
         val r2Alt = listOf("@", "#", "$", "%", "&", "-", "+", "(", ")")
         val r2 = r2Chars.mapIndexed { idx, char ->
+            val alt = r2Alt[idx]
             KeyModel(
                 primaryText = char,
-                altText = r2Alt[idx],
-                popupChars = LONG_PRESS_MAP[char] ?: emptyList()
+                altText = alt,
+                popupChars = getPopupCharsForKey(char, alt)
             )
         }
         rows.add(r2)
@@ -80,11 +82,12 @@ object KeyLayoutHelper {
         val r3Chars = listOf("z", "x", "c", "v", "b", "n", "m")
         val r3Alt = listOf("*", "\"", "'", ":", ";", "!", "?")
         r3Chars.forEachIndexed { idx, char ->
+            val alt = r3Alt[idx]
             r3.add(
                 KeyModel(
                     primaryText = char,
-                    altText = r3Alt[idx],
-                    popupChars = LONG_PRESS_MAP[char] ?: emptyList()
+                    altText = alt,
+                    popupChars = getPopupCharsForKey(char, alt)
                 )
             )
         }
@@ -283,4 +286,18 @@ object KeyLayoutHelper {
         "9" to listOf("9", "⁹"),
         "0" to listOf("0", "ⁿ", "∅", "⁰")
     )
+
+    fun getPopupCharsForKey(char: String, altText: String): List<String> {
+        val result = mutableListOf<String>()
+        if (altText.isNotEmpty()) {
+            result.add(altText)
+        }
+        val accents = LONG_PRESS_MAP[char] ?: emptyList()
+        accents.forEach {
+            if (!result.contains(it)) {
+                result.add(it)
+            }
+        }
+        return result
+    }
 }
