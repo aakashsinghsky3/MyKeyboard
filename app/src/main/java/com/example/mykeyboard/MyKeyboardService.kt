@@ -123,22 +123,44 @@ class MyKeyboardService : InputMethodService(),
 
     private data class EmojiSequenceInfo(val charLength: Int, val codePointCount: Int)
 
+    private fun isEmojiCodePoint(cp: Int): Boolean {
+        return (cp in 0x1F000..0x1FAFF) ||
+               (cp in 0x2600..0x27BF) ||
+               (cp in 0x2300..0x2BFF) ||
+               (cp in 0x1F300..0x1F9FF) ||
+               (cp in 0x2000..0x32FF) ||
+               (cp in 0xE0000..0xE007F) ||
+               cp == 0x200D ||
+               cp == 0xFE0F ||
+               cp == 0xFE0E ||
+               cp == 0x2640 ||
+               cp == 0x2642
+    }
+
     private fun getTrailingEmojiSequenceInfo(text: String): EmojiSequenceInfo? {
         if (text.isEmpty()) return null
 
-        val emojiRegex = Regex(
-            "((?:[\\u2600-\\u27BF\\uD83C-\\uD83E][\\uDC00-\\uDFFF]|[\\u2600-\\u27BF])" +
-            "(?:[\\uD83C][\\uDFFB-\\uDFFF])?" +
-            "(?:\\uFE0F)?" +
-            "(?:\\u200D(?:[\\u2600-\\u27BF\\uD83C-\\uD83E][\\uDC00-\\uDFFF]|[\\u2600-\\u27BF])" +
-            "(?:[\\uD83C][\\uDFFB-\\uDFFF])?" +
-            "(?:\\uFE0F)?)*)$"
-        )
+        val endIndex = text.length
+        var currIndex = text.length
+        var foundEmoji = false
 
-        val match = emojiRegex.find(text) ?: return null
-        val matchedStr = match.value
-        if (matchedStr.isEmpty()) return null
+        while (currIndex > 0) {
+            val cp = text.codePointBefore(currIndex)
+            val step = Character.charCount(cp)
 
+            if (isEmojiCodePoint(cp)) {
+                foundEmoji = true
+                currIndex -= step
+            } else if (foundEmoji && (cp == 0x200D || cp == 0xFE0F || cp == 0xFE0E)) {
+                currIndex -= step
+            } else {
+                break
+            }
+        }
+
+        if (!foundEmoji || currIndex == endIndex) return null
+
+        val matchedStr = text.substring(currIndex, endIndex)
         val charLength = matchedStr.length
         val codePointCount = matchedStr.codePointCount(0, charLength)
         return EmojiSequenceInfo(charLength, codePointCount)
