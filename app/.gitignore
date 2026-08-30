@@ -1,1 +1,9 @@
-/build
+# Signing credentials
+keystore.properties
+*.jks
+*.keystore
+
+# Build outputs
+/build/
+app/build/
+app/prod/

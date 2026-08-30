@@ -10,3 +10,11 @@ captures/
 .externalNativeBuild
 .cxx
 local.properties
+
+# Signing credentials
+keystore.properties
+*.jks
+*.keystore
+
+# Build outputs
+app/prod/

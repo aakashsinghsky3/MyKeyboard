@@ -1,9 +1,19 @@
+import java.util.Properties
+
 plugins {
     alias(libs.plugins.android.application)
 }
 
+val keystorePropertiesFile = rootProject.file("keystore.properties")
+val keystoreProperties = Properties()
+
+if (keystorePropertiesFile.exists()) {
+    keystoreProperties.load(keystorePropertiesFile.inputStream())
+}
+
 android {
     namespace = "com.example.mykeyboard"
+
     compileSdk {
         version = release(37)
     }
@@ -20,10 +30,11 @@ android {
 
     signingConfigs {
         create("release") {
-            storeFile = file("keyboard-release.jks")
-            storePassword = "keyboard123"
-            keyAlias = "keyboard"
-            keyPassword = "keyboard123"
+            storeFile = file(keystoreProperties["storeFile"] as String)
+            storePassword = keystoreProperties["storePassword"] as String
+            keyAlias = keystoreProperties["keyAlias"] as String
+            keyPassword = keystoreProperties["keyPassword"] as String
+
             enableV1Signing = true
             enableV2Signing = true
             enableV3Signing = true
@@ -32,6 +43,7 @@ android {
     }
 
     flavorDimensions += listOf("environment")
+
     productFlavors {
         create("dev") {
             dimension = "environment"
@@ -39,6 +51,7 @@ android {
             versionNameSuffix = "-dev"
             manifestPlaceholders["appName"] = "Keyboard (Dev)"
         }
+
         create("prod") {
             dimension = "environment"
             manifestPlaceholders["appName"] = "Keyboard"
@@ -49,12 +62,13 @@ android {
         debug {
             isDebuggable = true
             versionNameSuffix = "-debug"
-            signingConfig = signingConfigs.getByName("release")
         }
+
         release {
             isMinifyEnabled = true
             isShrinkResources = true
             signingConfig = signingConfigs.getByName("release")
+
             proguardFiles(
                 getDefaultProguardFile("proguard-android-optimize.txt"),
                 "proguard-rules.pro"
@@ -76,7 +90,9 @@ dependencies {
     implementation(libs.material)
     implementation("androidx.viewpager2:viewpager2:1.1.0")
     implementation("androidx.recyclerview:recyclerview:1.4.0")
+
     testImplementation(libs.junit)
+
     androidTestImplementation(libs.androidx.espresso.core)
     androidTestImplementation(libs.androidx.junit)
 }
