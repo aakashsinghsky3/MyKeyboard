@@ -238,25 +238,25 @@ object KeyLayoutHelper {
             )
         )
 
-        // Row 4: *, 0, #
+        // Row 4: *, 0 (+), #
         rows.add(
             listOf(
                 KeyModel(primaryText = "", type = KeyType.SPACER, weight = 1.0f),
                 KeyModel(primaryText = "*", altText = "", weight = 2.0f),
-                KeyModel(primaryText = "0", altText = "", popupChars = listOf("+"), weight = 2.0f),
+                KeyModel(primaryText = "0", altText = "+", popupChars = listOf("+"), weight = 2.0f),
                 KeyModel(primaryText = "#", altText = "", weight = 2.0f),
                 KeyModel(primaryText = "", type = KeyType.SPACER, weight = 1.0f)
             )
         )
 
-        // Row 5: [ABC] [,] [SPACE] [.] [DEL]
+        // Row 5: [Spacer] [ABC] [SPACE] [DEL] [Spacer]
         rows.add(
             listOf(
-                KeyModel(primaryText = "ABC", type = KeyType.MODE_CHANGE, weight = 1.4f),
-                KeyModel(primaryText = ",", type = KeyType.COMMA, weight = 1.0f),
-                KeyModel(primaryText = " ", type = KeyType.SPACE, weight = 3.0f),
-                KeyModel(primaryText = ".", type = KeyType.PERIOD, weight = 1.0f),
-                KeyModel(primaryText = "DEL", type = KeyType.BACKSPACE, weight = 1.4f)
+                KeyModel(primaryText = "", type = KeyType.SPACER, weight = 1.0f),
+                KeyModel(primaryText = "ABC", type = KeyType.MODE_CHANGE, weight = 2.0f),
+                KeyModel(primaryText = " ", type = KeyType.SPACE, weight = 2.0f),
+                KeyModel(primaryText = "DEL", type = KeyType.BACKSPACE, weight = 2.0f),
+                KeyModel(primaryText = "", type = KeyType.SPACER, weight = 1.0f)
             )
         )
 

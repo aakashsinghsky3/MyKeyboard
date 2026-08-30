@@ -544,7 +544,7 @@ class CustomKeyboardView @JvmOverloads constructor(
         }
 
         val bgDrawable = GradientDrawable().apply {
-            cornerRadius = if (isTablet) dpToPx(9).toFloat() else dpToPx(7).toFloat()
+            cornerRadius = if (keyboardMode == KeyboardMode.DIALPAD) dpToPx(12).toFloat() else if (isTablet) dpToPx(9).toFloat() else dpToPx(7).toFloat()
             val color = when (key.type) {
                 KeyType.ENTER -> currentTheme.keyActionColor
                 KeyType.SPACE -> currentTheme.keySpaceColor
@@ -644,7 +644,7 @@ class CustomKeyboardView @JvmOverloads constructor(
                     }
                     val mainTv = TextView(context).apply {
                         text = key.primaryText
-                        textSize = 18f
+                        textSize = 21f
                         gravity = Gravity.CENTER
                         setTextColor(currentTheme.textColorPrimary)
                         typeface = Typeface.DEFAULT_BOLD
@@ -654,9 +654,10 @@ class CustomKeyboardView @JvmOverloads constructor(
                     if (key.altText.isNotEmpty()) {
                         val subTv = TextView(context).apply {
                             text = key.altText
-                            textSize = 9f
+                            textSize = 10f
                             gravity = Gravity.CENTER
                             setTextColor(currentTheme.textColorSecondary)
+                            typeface = Typeface.DEFAULT_BOLD
                         }
                         container.addView(subTv)
                     }
