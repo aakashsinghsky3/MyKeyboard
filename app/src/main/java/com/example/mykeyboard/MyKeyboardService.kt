@@ -152,21 +152,8 @@ class MyKeyboardService : InputMethodService(),
         if (info != null && info.codePointCount > 0) {
             if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.N) {
                 ic.deleteSurroundingTextInCodePoints(info.codePointCount, 0)
-            }
-            ic.deleteSurroundingText(info.charLength, 0)
-
-            for (attempt in 0..2) {
-                val remaining = ic.getTextBeforeCursor(4, 0)?.toString() ?: ""
-                if (remaining.isEmpty()) break
-                val lastC = remaining.last()
-                if (lastC == '\u200D' || lastC == '\uFE0F' || (lastC.code in 0xDFFB..0xDFFF) || Character.isSurrogate(lastC)) {
-                    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.N) {
-                        ic.deleteSurroundingTextInCodePoints(1, 0)
-                    }
-                    ic.deleteSurroundingText(1, 0)
-                } else {
-                    break
-                }
+            } else {
+                ic.deleteSurroundingText(info.charLength, 0)
             }
             return true
         }
