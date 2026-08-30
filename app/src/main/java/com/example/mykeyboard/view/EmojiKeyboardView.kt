@@ -44,6 +44,8 @@ class EmojiKeyboardView @JvmOverloads constructor(
 
     private val scrollCategories: HorizontalScrollView
     private val categoryBar: LinearLayout
+    private val skinToneBar: HorizontalScrollView
+    private val skinToneContainer: LinearLayout
     private val viewPager: ViewPager2
     private val bottomBar: LinearLayout
     private var pagerAdapter: EmojiPagerAdapter? = null
@@ -68,7 +70,22 @@ class EmojiKeyboardView @JvmOverloads constructor(
         scrollCategories.addView(categoryBar)
         addView(scrollCategories)
 
-        // 2. Swipeable Emoji ViewPager2
+        // 2. Inline Skin Tone Bar
+        skinToneBar = HorizontalScrollView(context).apply {
+            layoutParams = LayoutParams(LayoutParams.MATCH_PARENT, dpToPx(38))
+            isHorizontalScrollBarEnabled = false
+            visibility = View.GONE
+        }
+        skinToneContainer = LinearLayout(context).apply {
+            orientation = HORIZONTAL
+            gravity = Gravity.CENTER_VERTICAL
+            layoutParams = LayoutParams(LayoutParams.WRAP_CONTENT, LayoutParams.MATCH_PARENT)
+            setPadding(dpToPx(8), 0, dpToPx(8), 0)
+        }
+        skinToneBar.addView(skinToneContainer)
+        addView(skinToneBar)
+
+        // 3. Swipeable Emoji ViewPager2
         viewPager = ViewPager2(context).apply {
             layoutParams = LayoutParams(LayoutParams.MATCH_PARENT, dpToPx(165))
             orientation = ViewPager2.ORIENTATION_HORIZONTAL
@@ -375,10 +392,10 @@ class EmojiKeyboardView @JvmOverloads constructor(
                 onEmojiClick(emoji)
             }
 
-            textView.setOnLongClickListener { view ->
+            textView.setOnLongClickListener {
                 val variants = com.example.mykeyboard.utils.EmojiVariantsHelper.getVariants(emoji)
                 if (variants.size > 1) {
-                    showVariantsPopup(view, variants)
+                    showSkinToneSelector(variants)
                     true
                 } else {
                     false
@@ -389,67 +406,43 @@ class EmojiKeyboardView @JvmOverloads constructor(
         }
     }
 
-    private var variantsPopupWindow: PopupWindow? = null
+    private fun showSkinToneSelector(variants: List<String>) {
+        skinToneContainer.removeAllViews()
 
-    private fun showVariantsPopup(anchorView: View, variants: List<String>) {
-        dismissVariantsPopup()
-
-        val ctx = anchorView.context
-        val container = LinearLayout(ctx).apply {
-            orientation = HORIZONTAL
-            gravity = Gravity.CENTER_VERTICAL
-            val bg = GradientDrawable().apply {
-                cornerRadius = dpToPx(12).toFloat()
-                setColor(currentTheme.keySpecialColor)
-                setStroke(dpToPx(1), currentTheme.textColorSecondary)
-            }
-            background = bg
-            setPadding(dpToPx(6), dpToPx(4), dpToPx(6), dpToPx(4))
+        val bgDrawable = GradientDrawable().apply {
+            cornerRadius = dpToPx(10).toFloat()
+            setColor(currentTheme.keyActionColor)
         }
+        skinToneBar.background = bgDrawable
 
-        val scroll = HorizontalScrollView(ctx).apply {
-            isHorizontalScrollBarEnabled = false
-            addView(container)
-        }
-
-        variants.forEach { variantEmoji ->
-            val tv = TextView(ctx).apply {
-                text = variantEmoji
-                textSize = 22f
+        variants.forEach { variant ->
+            val tv = TextView(context).apply {
+                text = variant
+                textSize = 20f
                 gravity = Gravity.CENTER
-                val pad = dpToPx(6)
-                setPadding(pad, pad, pad, pad)
+                setPadding(dpToPx(8), 0, dpToPx(8), 0)
                 setOnClickListener {
-                    dismissVariantsPopup()
-                    listener?.onEmojiSelected(variantEmoji)
+                    skinToneBar.visibility = View.GONE
+                    listener?.onEmojiSelected(variant)
                 }
             }
-            container.addView(tv)
+            skinToneContainer.addView(tv)
         }
 
-        variantsPopupWindow = PopupWindow(scroll, LayoutParams.WRAP_CONTENT, LayoutParams.WRAP_CONTENT, false).apply {
-            isOutsideTouchable = true
-            isTouchable = true
-            isFocusable = false
-            elevation = dpToPx(8).toFloat()
+        val closeTv = TextView(context).apply {
+            text = " ✕ "
+            textSize = 14f
+            setTypeface(android.graphics.Typeface.DEFAULT_BOLD)
+            setTextColor(currentTheme.actionTextColor)
+            gravity = Gravity.CENTER
+            setPadding(dpToPx(12), 0, dpToPx(12), 0)
+            setOnClickListener {
+                skinToneBar.visibility = View.GONE
+            }
         }
+        skinToneContainer.addView(closeTv)
 
-        anchorView.post {
-            val location = IntArray(2)
-            anchorView.getLocationOnScreen(location)
-            val popupX = location[0] - dpToPx(10)
-            val popupY = location[1] - dpToPx(50)
-            try {
-                variantsPopupWindow?.showAtLocation(anchorView, Gravity.NO_GRAVITY, popupX, popupY)
-            } catch (_: Exception) {}
-        }
-    }
-
-    private fun dismissVariantsPopup() {
-        try {
-            variantsPopupWindow?.dismiss()
-        } catch (_: Exception) {}
-        variantsPopupWindow = null
+        skinToneBar.visibility = View.VISIBLE
     }
 
     private fun getNavigationBarHeight(): Int {
