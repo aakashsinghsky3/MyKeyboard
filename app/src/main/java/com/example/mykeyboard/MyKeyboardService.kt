@@ -121,8 +121,10 @@ class MyKeyboardService : InputMethodService(),
         recordCurrentSnapshot()
     }
 
-    private fun getTrailingEmojiSequenceLength(text: String): Int {
-        if (text.isEmpty()) return 0
+    private data class EmojiSequenceInfo(val charLength: Int, val codePointCount: Int)
+
+    private fun getTrailingEmojiSequenceInfo(text: String): EmojiSequenceInfo? {
+        if (text.isEmpty()) return null
 
         val emojiRegex = Regex(
             "((?:[\\u2600-\\u27BF\\uD83C-\\uD83E][\\uDC00-\\uDFFF]|[\\u2600-\\u27BF])" +
@@ -133,31 +135,37 @@ class MyKeyboardService : InputMethodService(),
             "(?:\\uFE0F)?)*)$"
         )
 
-        val match = emojiRegex.find(text)
-        return match?.value?.length ?: 0
+        val match = emojiRegex.find(text) ?: return null
+        val matchedStr = match.value
+        if (matchedStr.isEmpty()) return null
+
+        val charLength = matchedStr.length
+        val codePointCount = matchedStr.codePointCount(0, charLength)
+        return EmojiSequenceInfo(charLength, codePointCount)
     }
 
     private fun deleteEmojiSequence(ic: InputConnection): Boolean {
-        val textBefore = ic.getTextBeforeCursor(20, 0)?.toString() ?: ""
+        val textBefore = ic.getTextBeforeCursor(24, 0)?.toString() ?: ""
         if (textBefore.isEmpty()) return false
 
-        val emojiSeqLen = getTrailingEmojiSequenceLength(textBefore)
-        if (emojiSeqLen > 0) {
-            ic.deleteSurroundingText(emojiSeqLen, 0)
+        val info = getTrailingEmojiSequenceInfo(textBefore)
+        if (info != null && info.codePointCount > 0) {
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.N) {
+                ic.deleteSurroundingTextInCodePoints(info.codePointCount, 0)
+            }
+            ic.deleteSurroundingText(info.charLength, 0)
 
-            // Double check if lingering ZWJ or surrogate remnant is left
-            val checkText = ic.getTextBeforeCursor(4, 0)?.toString() ?: ""
-            if (checkText.isNotEmpty()) {
-                val lastC = checkText.last()
+            for (attempt in 0..2) {
+                val remaining = ic.getTextBeforeCursor(4, 0)?.toString() ?: ""
+                if (remaining.isEmpty()) break
+                val lastC = remaining.last()
                 if (lastC == '\u200D' || lastC == '\uFE0F' || (lastC.code in 0xDFFB..0xDFFF) || Character.isSurrogate(lastC)) {
-                    val residualLen = getTrailingEmojiSequenceLength(checkText)
-                    if (residualLen > 0) {
-                        ic.deleteSurroundingText(residualLen, 0)
-                    } else if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.N) {
+                    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.N) {
                         ic.deleteSurroundingTextInCodePoints(1, 0)
-                    } else {
-                        ic.deleteSurroundingText(1, 0)
                     }
+                    ic.deleteSurroundingText(1, 0)
+                } else {
+                    break
                 }
             }
             return true
