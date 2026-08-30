@@ -137,13 +137,33 @@ class MyKeyboardService : InputMethodService(),
                cp == 0x2642
     }
 
+    private fun isRegionalIndicator(cp: Int): Boolean {
+        return cp in 0x1F1E6..0x1F1FF
+    }
+
     private fun getTrailingEmojiSequenceInfo(text: String): EmojiSequenceInfo? {
         if (text.isEmpty()) return null
 
         val endIndex = text.length
         var currIndex = text.length
-        var expectZwjOrStop = false
 
+        // Check if trailing character is a Regional Indicator (Country Flag part)
+        val lastCp = text.codePointBefore(currIndex)
+        if (isRegionalIndicator(lastCp)) {
+            currIndex -= Character.charCount(lastCp)
+            if (currIndex > 0) {
+                val prevCp = text.codePointBefore(currIndex)
+                if (isRegionalIndicator(prevCp)) {
+                    currIndex -= Character.charCount(prevCp)
+                }
+            }
+            val matchedStr = text.substring(currIndex, endIndex)
+            val charLength = matchedStr.length
+            val codePointCount = matchedStr.codePointCount(0, charLength)
+            return EmojiSequenceInfo(charLength, codePointCount)
+        }
+
+        var expectZwjOrStop = false
         while (currIndex > 0) {
             val cp = text.codePointBefore(currIndex)
             val step = Character.charCount(cp)
