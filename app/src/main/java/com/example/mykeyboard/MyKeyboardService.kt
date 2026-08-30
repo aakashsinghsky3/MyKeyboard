@@ -142,23 +142,34 @@ class MyKeyboardService : InputMethodService(),
 
         val endIndex = text.length
         var currIndex = text.length
-        var foundEmoji = false
+        var expectZwjOrStop = false
 
         while (currIndex > 0) {
             val cp = text.codePointBefore(currIndex)
             val step = Character.charCount(cp)
 
-            if (isEmojiCodePoint(cp)) {
-                foundEmoji = true
-                currIndex -= step
-            } else if (foundEmoji && (cp == 0x200D || cp == 0xFE0F || cp == 0xFE0E)) {
-                currIndex -= step
+            if (expectZwjOrStop) {
+                if (cp == 0x200D) {
+                    currIndex -= step
+                    expectZwjOrStop = false
+                } else if (cp == 0xFE0F || cp == 0xFE0E || (cp in 0x1F3FB..0x1F3FF)) {
+                    currIndex -= step
+                } else {
+                    break
+                }
             } else {
-                break
+                if (isEmojiCodePoint(cp)) {
+                    currIndex -= step
+                    if (cp != 0x200D && cp != 0xFE0F && cp != 0xFE0E && (cp !in 0x1F3FB..0x1F3FF)) {
+                        expectZwjOrStop = true
+                    }
+                } else {
+                    break
+                }
             }
         }
 
-        if (!foundEmoji || currIndex == endIndex) return null
+        if (currIndex == endIndex) return null
 
         val matchedStr = text.substring(currIndex, endIndex)
         val charLength = matchedStr.length
