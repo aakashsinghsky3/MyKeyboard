@@ -19,7 +19,7 @@ android {
     }
 
     defaultConfig {
-        applicationId = "com.example.mykeyboard"
+        applicationId = "com.aakashworkcontact.keyboard"
         minSdk = 24
         targetSdk = 37
         versionCode = 2
