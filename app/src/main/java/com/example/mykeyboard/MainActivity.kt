@@ -115,6 +115,8 @@ class MainActivity : AppCompatActivity() {
         etTestTyping = findViewById(R.id.et_test_typing)
         btnClearTest = findViewById(R.id.btn_clear_test)
         layoutThemesContainer = findViewById(R.id.layout_themes_container)
+        val verName = try { packageManager.getPackageInfo(packageName, 0).versionName ?: "4.3" } catch (e: Exception) { "4.3" }
+        findViewById<TextView>(R.id.tvVersion)?.text = "v$verName"
 
         btnChooseImage = findViewById(R.id.btn_choose_image)
         btnRemoveImage = findViewById(R.id.btn_remove_image)
