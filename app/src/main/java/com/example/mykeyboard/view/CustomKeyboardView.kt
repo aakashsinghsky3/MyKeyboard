@@ -174,7 +174,7 @@ class CustomKeyboardView @JvmOverloads constructor(
         androidx.core.view.ViewCompat.setOnApplyWindowInsetsListener(this) { _, windowInsets ->
             val navInsets = windowInsets.getInsets(androidx.core.view.WindowInsetsCompat.Type.navigationBars())
             val bottomPad = if (navInsets.bottom > 0) {
-                minOf(navInsets.bottom, dpToPx(16))
+                navInsets.bottom
             } else {
                 getCalculatedBottomPadding()
             }
