@@ -115,6 +115,13 @@ class ClipboardHistoryManager(context: Context) : SQLiteOpenHelper(context, DB_N
         } catch (_: Exception) {}
     }
 
+    fun clearAll() {
+        try {
+            val db = writableDatabase
+            db.delete(TABLE_CLIPBOARD, null, null)
+        } catch (_: Exception) {}
+    }
+
     companion object {
         private const val DB_NAME = "my_keyboard_clipboard.db"
         private const val DB_VERSION = 1

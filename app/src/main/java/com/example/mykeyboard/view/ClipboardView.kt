@@ -130,16 +130,24 @@ class ClipboardView @JvmOverloads constructor(
         }
         headerLayout.addView(titleTv)
 
-        // Clear Unpinned Button
+        // Clear All Button
         val clearBtn = TextView(context).apply {
-            text = "Clear All"
-            textSize = 12f
-            setTextColor(currentTheme.textColorSecondary)
-            val pad = dpToPx(6)
-            setPadding(pad, pad, pad, pad)
+            text = "Clear All 🗑️"
+            textSize = 12.5f
+            typeface = Typeface.DEFAULT_BOLD
+            setTextColor(currentTheme.textColorPrimary)
+            val padH = dpToPx(10)
+            val padV = dpToPx(6)
+            setPadding(padH, padV, padH, padV)
+            val bg = GradientDrawable().apply {
+                cornerRadius = dpToPx(14).toFloat()
+                setColor(currentTheme.keySpecialColor)
+            }
+            background = bg
             setOnClickListener {
-                clipboardManager.clearUnpinned()
+                clipboardManager.clearAll()
                 refreshClips()
+                android.widget.Toast.makeText(context, "Clipboard cleared ✓", android.widget.Toast.LENGTH_SHORT).show()
             }
         }
         headerLayout.addView(clearBtn)
