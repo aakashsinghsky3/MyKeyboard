@@ -1169,7 +1169,7 @@ class CustomKeyboardView @JvmOverloads constructor(
         val isTablet = context.resources.configuration.smallestScreenWidthDp >= 600
         val isLandscape = context.resources.configuration.orientation == android.content.res.Configuration.ORIENTATION_LANDSCAPE
         val numRows = if (preferences.isNumberRowEnabled) 5 else 4
-        val baseRowHeight = if (isTablet) dpToPx(50) else if (isLandscape) dpToPx(38) else if (numRows == 5) dpToPx(40) else dpToPx(42)
+        val baseRowHeight = if (isTablet) dpToPx(56) else if (isLandscape) dpToPx(42) else if (numRows == 5) dpToPx(44) else dpToPx(48)
         val scaledRowHeight = (baseRowHeight * preferences.heightScale).toInt()
         val rowMarginB = if (isTablet) dpToPx(5) else (3.0f * context.resources.displayMetrics.density).toInt()
         return (numRows * scaledRowHeight) + ((numRows - 1) * rowMarginB)

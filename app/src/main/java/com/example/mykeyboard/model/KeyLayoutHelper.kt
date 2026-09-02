@@ -215,18 +215,18 @@ object KeyLayoutHelper {
         // Row 1: + | 1 | 2 | 3 | %
         rows.add(
             listOf(
-                KeyModel(primaryText = "+", type = KeyType.MODE_CHANGE, weight = 1.0f),
+                KeyModel(primaryText = "+", type = KeyType.CHARACTER, weight = 1.0f),
                 KeyModel(primaryText = "1", popupChars = listOf("¹"), weight = 1.4f),
                 KeyModel(primaryText = "2", popupChars = listOf("²"), weight = 1.4f),
                 KeyModel(primaryText = "3", popupChars = listOf("³"), weight = 1.4f),
-                KeyModel(primaryText = "%", type = KeyType.MODE_CHANGE, weight = 1.0f)
+                KeyModel(primaryText = "%", type = KeyType.CHARACTER, weight = 1.0f)
             )
         )
 
         // Row 2: - | 4 | 5 | 6 | ␣
         rows.add(
             listOf(
-                KeyModel(primaryText = "-", type = KeyType.MODE_CHANGE, weight = 1.0f),
+                KeyModel(primaryText = "-", type = KeyType.CHARACTER, weight = 1.0f),
                 KeyModel(primaryText = "4", popupChars = listOf("⁴"), weight = 1.4f),
                 KeyModel(primaryText = "5", popupChars = listOf("⁵"), weight = 1.4f),
                 KeyModel(primaryText = "6", popupChars = listOf("⁶"), weight = 1.4f),
@@ -237,7 +237,7 @@ object KeyLayoutHelper {
         // Row 3: * | 7 | 8 | 9 | ⌫
         rows.add(
             listOf(
-                KeyModel(primaryText = "*", type = KeyType.MODE_CHANGE, weight = 1.0f),
+                KeyModel(primaryText = "*", type = KeyType.CHARACTER, weight = 1.0f),
                 KeyModel(primaryText = "7", popupChars = listOf("⁷"), weight = 1.4f),
                 KeyModel(primaryText = "8", popupChars = listOf("⁸"), weight = 1.4f),
                 KeyModel(primaryText = "9", popupChars = listOf("⁹"), weight = 1.4f),
@@ -248,10 +248,10 @@ object KeyLayoutHelper {
         // Row 4: / | ABC | , | !?# | 0 | = | . | ENTER
         rows.add(
             listOf(
-                KeyModel(primaryText = "/", type = KeyType.MODE_CHANGE, weight = 0.9f),
+                KeyModel(primaryText = "/", type = KeyType.CHARACTER, weight = 0.9f),
                 KeyModel(primaryText = "ABC", type = KeyType.MODE_CHANGE, weight = 1.1f),
                 KeyModel(primaryText = ",", type = KeyType.COMMA, weight = 0.7f),
-                KeyModel(primaryText = "!?#", type = KeyType.MODE_CHANGE, weight = 0.9f),
+                KeyModel(primaryText = "?123", type = KeyType.MODE_CHANGE, weight = 0.9f),
                 KeyModel(primaryText = "0", popupChars = listOf("+"), weight = 1.3f),
                 KeyModel(primaryText = "=", type = KeyType.CHARACTER, weight = 0.9f),
                 KeyModel(primaryText = ".", type = KeyType.PERIOD, weight = 0.7f),
