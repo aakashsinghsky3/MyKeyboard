@@ -36,7 +36,7 @@ class PredictionEngine(context: Context) {
                                 for (len in 1..maxLen) {
                                     val prefix = word.substring(0, len)
                                     val list = tempPrefixMap.getOrPut(prefix) { mutableListOf() }
-                                    if (list.size < 50) {
+                                    if (list.size < 300) {
                                         list.add(Pair(word, freq))
                                     }
                                 }
@@ -287,44 +287,49 @@ class PredictionEngine(context: Context) {
         // 1. Check direct typo engine match
         var autoCorrectMatch = AutoCorrectEngine.getCorrection(prefix, autoCorrectMode)
 
-        // 2. Query fast prefix index for direct matches
-        val prefixMatches = mutableListOf<Pair<String, Int>>()
+        // 2. Collect candidate matches with robust scoring
+        val candidateScores = mutableMapOf<String, Long>()
 
-        // User learned words (highest priority)
+        // Priority 1: User learned words
         learnedWords.forEach { (word, freq) ->
             if (word.startsWith(cleanPrefix)) {
-                prefixMatches.add(Pair(word, 1000000 + freq * 1000))
+                val bonus = if (word == cleanPrefix) 50_000_000L else 0L
+                candidateScores[word] = maxOf(candidateScores[word] ?: 0L, 10_000_000L + freq * 1000L + bonus)
             }
         }
 
-        // Fast prefix index lookup
-        val indexedList = prefixIndex[cleanPrefix.take(4)]
+        // Priority 2: Fast Prefix Index
+        val indexedList = prefixIndex[cleanPrefix.take(minOf(4, cleanPrefix.length))]
         if (indexedList != null) {
             indexedList.forEach { (word, freq) ->
-                if (word.startsWith(cleanPrefix) && prefixMatches.none { it.first == word }) {
-                    val bonus = if (word == cleanPrefix) 5000000 else 0
-                    prefixMatches.add(Pair(word, freq + bonus))
-                }
-            }
-        } else {
-            // Scan for prefixes longer than 4 chars or while loading
-            assetDictionary.forEach { (word, freq) ->
-                if (word.startsWith(cleanPrefix) && prefixMatches.none { it.first == word }) {
-                    val bonus = if (word == cleanPrefix) 5000000 else 0
-                    prefixMatches.add(Pair(word, freq + bonus))
+                if (word.startsWith(cleanPrefix)) {
+                    val bonus = if (word == cleanPrefix) 50_000_000L else 0L
+                    candidateScores[word] = maxOf(candidateScores[word] ?: 0L, freq.toLong() + bonus)
                 }
             }
         }
 
-        // Always fallback to COMMON_DICTIONARY so suggestions NEVER fail
+        // Priority 3: Full Asset Dictionary Fallback scan
+        assetDictionary.forEach { (word, freq) ->
+            if (word.startsWith(cleanPrefix) && !candidateScores.containsKey(word)) {
+                val bonus = if (word == cleanPrefix) 50_000_000L else 0L
+                candidateScores[word] = maxOf(candidateScores[word] ?: 0L, freq.toLong() + bonus)
+            }
+        }
+
+        // Priority 4: COMMON_DICTIONARY Guarantee
         COMMON_DICTIONARY.forEach { word ->
-            if (word.startsWith(cleanPrefix) && prefixMatches.none { it.first == word }) {
-                val bonus = if (word == cleanPrefix) 5000000 else 0
-                prefixMatches.add(Pair(word, 500 + bonus))
+            if (word.startsWith(cleanPrefix)) {
+                val bonus = if (word == cleanPrefix) 50_000_000L else 0L
+                candidateScores[word] = maxOf(candidateScores[word] ?: 0L, 500_000L + bonus)
             }
         }
 
-        val allMatches = prefixMatches.sortedByDescending { it.second }.map { it.first }.toMutableList()
+        // Sort candidates by total score descending
+        val allMatches = candidateScores.entries
+            .sortedByDescending { it.value }
+            .map { it.key }
+            .toMutableList()
 
         // 3. If word is typed with typo and not in dictionary, find closest typo correction
         if (autoCorrectMatch == null && cleanPrefix.length >= 3 && !assetDictionary.containsKey(cleanPrefix) && !learnedWords.containsKey(cleanPrefix)) {

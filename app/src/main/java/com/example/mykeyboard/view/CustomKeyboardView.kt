@@ -488,8 +488,7 @@ class CustomKeyboardView @JvmOverloads constructor(
             KeyboardMode.EMOJI -> emptyList()
         }
 
-        val isTablet = context.resources.configuration.smallestScreenWidthDp >= 600
-        val rowMarginB = if (isTablet) dpToPx(5) else (3.0f * context.resources.displayMetrics.density).toInt()
+        val rowMarginB = (4.0f * context.resources.displayMetrics.density).toInt()
         val defaultBottomPad = maxOf(getNavigationBarHeight(), dpToPx(48))
         val targetContentHeight = getStandardContentHeight()
 
@@ -527,8 +526,7 @@ class CustomKeyboardView @JvmOverloads constructor(
             }
         }
 
-        val isTablet = context.resources.configuration.smallestScreenWidthDp >= 600
-        val keyMarginH = if (isTablet) dpToPx(5) else (3.0f * context.resources.displayMetrics.density).toInt()
+        val keyMarginH = (4.0f * context.resources.displayMetrics.density).toInt()
         val keyLayout = FrameLayout(context).apply {
             layoutParams = LayoutParams(0, LayoutParams.MATCH_PARENT, key.weight).apply {
                 marginStart = keyMarginH
