@@ -102,9 +102,10 @@ class CustomKeyboardView @JvmOverloads constructor(
     private var activeAccentIndex: Int = -1
     private var currentPopupChars: List<String> = emptyList()
 
-    // Backspace repeat handler
+    // Backspace & Space repeat handler
     private val handler = Handler(Looper.getMainLooper())
     private var isBackspaceHeld = false
+    private var spaceLongPressRunnable: Runnable? = null
     private val backspaceRepeatRunnable = object : Runnable {
         override fun run() {
             if (isBackspaceHeld) {
@@ -786,13 +787,14 @@ class CustomKeyboardView @JvmOverloads constructor(
                         }
                         handler.postDelayed(longPressRunnable, 350)
                     } else if (key.type == KeyType.SPACE) {
-                        handler.postDelayed({
+                        spaceLongPressRunnable = Runnable {
                             if (!isCursorSliding && !isLongPressHandled) {
                                 isLongPressHandled = true
                                 performHapticFeedback()
                                 showLanguageSelectionDialog()
                             }
-                        }, 400)
+                        }
+                        handler.postDelayed(spaceLongPressRunnable!!, 600)
                     }
                     true
                 }
@@ -802,6 +804,7 @@ class CustomKeyboardView @JvmOverloads constructor(
 
                     if (key.type == KeyType.SPACE && abs(dx) > dpToPx(12)) {
                         isCursorSliding = true
+                        spaceLongPressRunnable?.let { handler.removeCallbacks(it) }
                         val diff = event.rawX - lastCursorMoveX
                         val step = dpToPx(14)
                         if (abs(diff) >= step) {
@@ -822,6 +825,7 @@ class CustomKeyboardView @JvmOverloads constructor(
                     animateKeyPress(v, false)
                     handler.removeCallbacks(longPressRunnable)
                     handler.removeCallbacks(backspaceRepeatRunnable)
+                    spaceLongPressRunnable?.let { handler.removeCallbacks(it) }
                     isBackspaceHeld = false
                     dismissPopup()
 
