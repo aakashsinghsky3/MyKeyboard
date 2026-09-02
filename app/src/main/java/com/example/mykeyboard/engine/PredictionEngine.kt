@@ -302,14 +302,16 @@ class PredictionEngine(context: Context) {
         if (indexedList != null) {
             indexedList.forEach { (word, freq) ->
                 if (word.startsWith(cleanPrefix) && prefixMatches.none { it.first == word }) {
-                    prefixMatches.add(Pair(word, freq))
+                    val bonus = if (word == cleanPrefix) 5000000 else 0
+                    prefixMatches.add(Pair(word, freq + bonus))
                 }
             }
         } else {
             // Scan for prefixes longer than 4 chars or while loading
             assetDictionary.forEach { (word, freq) ->
                 if (word.startsWith(cleanPrefix) && prefixMatches.none { it.first == word }) {
-                    prefixMatches.add(Pair(word, freq))
+                    val bonus = if (word == cleanPrefix) 5000000 else 0
+                    prefixMatches.add(Pair(word, freq + bonus))
                 }
             }
         }
@@ -317,7 +319,8 @@ class PredictionEngine(context: Context) {
         // Always fallback to COMMON_DICTIONARY so suggestions NEVER fail
         COMMON_DICTIONARY.forEach { word ->
             if (word.startsWith(cleanPrefix) && prefixMatches.none { it.first == word }) {
-                prefixMatches.add(Pair(word, 500))
+                val bonus = if (word == cleanPrefix) 5000000 else 0
+                prefixMatches.add(Pair(word, 500 + bonus))
             }
         }
 

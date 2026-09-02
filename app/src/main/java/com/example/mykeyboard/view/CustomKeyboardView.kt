@@ -275,25 +275,14 @@ class CustomKeyboardView @JvmOverloads constructor(
 
         // Center Candidate (Primary / Autocorrect)
         candidateCenterTv.text = result.center ?: ""
-        if (result.isAutoCorrect || !result.center.isNullOrEmpty()) {
-            candidateCenterTv.setTextSize(16f)
-            candidateCenterTv.setTypeface(Typeface.DEFAULT_BOLD, if (result.isAutoCorrect) Typeface.BOLD_ITALIC else Typeface.BOLD)
-            candidateCenterTv.setTextColor(currentTheme.actionTextColor)
-            val bg = GradientDrawable().apply {
-                cornerRadius = dpToPx(12).toFloat()
-                setColor(currentTheme.keyActionColor)
-            }
-            candidateCenterTv.background = bg
-        } else {
-            candidateCenterTv.setTextSize(15f)
-            candidateCenterTv.typeface = Typeface.DEFAULT_BOLD
-            candidateCenterTv.setTextColor(currentTheme.suggestionTextColor)
-            val bg = GradientDrawable().apply {
-                cornerRadius = dpToPx(10).toFloat()
-                setColor(currentTheme.keySpecialColor)
-            }
-            candidateCenterTv.background = bg
+        candidateCenterTv.setTextSize(15.5f)
+        candidateCenterTv.setTypeface(Typeface.DEFAULT_BOLD, if (result.isAutoCorrect) Typeface.BOLD_ITALIC else Typeface.BOLD)
+        candidateCenterTv.setTextColor(currentTheme.textColorPrimary)
+        val bg = GradientDrawable().apply {
+            cornerRadius = dpToPx(10).toFloat()
+            setColor(currentTheme.keySpecialColor)
         }
+        candidateCenterTv.background = bg
 
         // Right Candidate
         candidateRightTv.text = result.right ?: ""
