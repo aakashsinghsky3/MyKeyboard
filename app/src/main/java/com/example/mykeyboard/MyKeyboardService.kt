@@ -259,28 +259,12 @@ class MyKeyboardService : InputMethodService(),
             }
         }
 
-        // 2. Auto-Correction on Space (Gboard Fast-Typing Engine)
+        // 2. Learn typed word on space
         if (!textBefore.endsWith(" ")) {
             val allWords = textBefore.trim().split(Regex("[^\\p{L}\\p{N}']")).filter { it.isNotEmpty() }
             val lastWord = allWords.lastOrNull() ?: ""
-
             if (lastWord.isNotEmpty()) {
-                val prevWords = allWords.dropLast(1)
-                val suggestionResult = predictionEngine.getSuggestions(lastWord, prevWords, preferences.autoCorrectMode, preferences.currentLanguage)
-                val bestMatch = suggestionResult.center
-
-                if (!bestMatch.isNullOrEmpty() && bestMatch.lowercase() != lastWord.lowercase()) {
-                    ic.deleteSurroundingText(lastWord.length, 0)
-                    ic.commitText("$bestMatch ", 1)
-                    predictionEngine.learnWord(bestMatch)
-                    lastSpaceTime = now
-                    checkAutoCaps()
-                    updatePredictions()
-                    recordCurrentSnapshot()
-                    return
-                } else {
-                    predictionEngine.learnWord(lastWord)
-                }
+                predictionEngine.learnWord(lastWord)
             }
         }
 

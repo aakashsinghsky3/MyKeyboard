@@ -268,13 +268,18 @@ class PredictionEngine(context: Context) {
                 predictions.addAll(list)
             }
 
+            // 1. Try 2-word context match (highest precision)
+            N_GRAM_MAP[context2]?.let { list ->
+                list.filter { isValidForLanguage(it, language) }.forEach { predictions.add(it) }
+            }
+
             // 2. Try 1-word context match
             N_GRAM_MAP[context1]?.let { list ->
-                list.forEach { if (!predictions.contains(it)) predictions.add(it) }
+                list.filter { isValidForLanguage(it, language) }.forEach { if (!predictions.contains(it)) predictions.add(it) }
             }
 
             // 3. Learned user words that fit
-            learnedWords.keys.take(3).forEach {
+            learnedWords.keys.filter { isValidForLanguage(it, language) }.take(3).forEach {
                 if (!predictions.contains(it)) predictions.add(it)
             }
 
@@ -342,8 +347,9 @@ class PredictionEngine(context: Context) {
             }
         }
 
-        // Sort candidates by total score descending
+        // Sort candidates by total score descending, filtered strictly by active language script
         val allMatches = candidateScores.entries
+            .filter { isValidForLanguage(it.key, language) }
             .sortedByDescending { it.value }
             .map { it.key }
             .toMutableList()
@@ -416,4 +422,17 @@ class PredictionEngine(context: Context) {
     }
 
     private fun abs(n: Int) = if (n < 0) -n else n
+
+    private fun isDevanagari(text: String): Boolean {
+        return text.any { Character.UnicodeBlock.of(it) == Character.UnicodeBlock.DEVANAGARI }
+    }
+
+    private fun isValidForLanguage(text: String, language: String): Boolean {
+        val hasDevanagari = isDevanagari(text)
+        return if (language == "hi") {
+            hasDevanagari
+        } else {
+            !hasDevanagari
+        }
+    }
 }
