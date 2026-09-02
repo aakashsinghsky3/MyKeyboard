@@ -263,13 +263,18 @@ class CustomKeyboardView @JvmOverloads constructor(
         val result = predictionEngine.getSuggestions(prefix, previousWords, preferences.autoCorrectMode)
         currentSuggestionResult = result
 
-        if (prefix.isNotEmpty()) {
+        val hasLeft = !result.left.isNullOrEmpty()
+        val hasCenter = !result.center.isNullOrEmpty()
+        val hasRight = !result.right.isNullOrEmpty()
+        val hasAnyCandidate = hasLeft || hasCenter || hasRight
+
+        if (prefix.isNotEmpty() || hasAnyCandidate) {
             toolbarActionsLayout.visibility = View.GONE
             candidatesLayout.visibility = View.VISIBLE
 
-            candidateLeftTv.visibility = View.VISIBLE
-            candidateCenterTv.visibility = View.VISIBLE
-            candidateRightTv.visibility = View.VISIBLE
+            candidateLeftTv.visibility = if (hasLeft) View.VISIBLE else View.GONE
+            candidateCenterTv.visibility = if (hasCenter) View.VISIBLE else View.GONE
+            candidateRightTv.visibility = if (hasRight) View.VISIBLE else View.GONE
         } else {
             toolbarActionsLayout.visibility = View.VISIBLE
             candidatesLayout.visibility = View.GONE
@@ -503,16 +508,23 @@ class CustomKeyboardView @JvmOverloads constructor(
         rowsLayout.setPadding(dpToPx(8), dpToPx(3), dpToPx(8), defaultBottomPad)
 
         if (rows.isNotEmpty()) {
+            val hasNumberRow = preferences.isNumberRowEnabled && (keyboardMode == KeyboardMode.ALPHA || keyboardMode == KeyboardMode.SYMBOLS_1 || keyboardMode == KeyboardMode.SYMBOLS_2)
             val totalMargins = (rows.size - 1) * rowMarginB
-            val rowHeight = maxOf(dpToPx(32), (targetContentHeight - totalMargins) / rows.size)
 
-            rows.forEach { keyRow ->
+            val numberRowH = if (hasNumberRow) dpToPx(36) else 0
+            val remainingH = targetContentHeight - totalMargins - numberRowH
+            val letterRowH = maxOf(dpToPx(38), if (hasNumberRow && rows.size > 1) remainingH / (rows.size - 1) else (targetContentHeight - totalMargins) / rows.size)
+
+            rows.forEachIndexed { rowIndex, keyRow ->
+                val isNumRow = hasNumberRow && rowIndex == 0
+                val currentRowHeight = if (isNumRow) numberRowH else letterRowH
+
                 val totalWeight = keyRow.sumOf { it.weight.toDouble() }.toFloat()
                 val rowLayout = LinearLayout(context).apply {
                     orientation = HORIZONTAL
                     gravity = Gravity.CENTER
                     weightSum = totalWeight
-                    layoutParams = LayoutParams(LayoutParams.MATCH_PARENT, rowHeight).apply {
+                    layoutParams = LayoutParams(LayoutParams.MATCH_PARENT, currentRowHeight).apply {
                         bottomMargin = rowMarginB
                     }
                 }
