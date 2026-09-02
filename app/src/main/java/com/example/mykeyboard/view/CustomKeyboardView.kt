@@ -501,8 +501,8 @@ class CustomKeyboardView @JvmOverloads constructor(
         val currentLang = KeyboardLanguage.fromId(preferences.currentLanguage)
         val rows = when (keyboardMode) {
             KeyboardMode.ALPHA -> KeyLayoutHelper.getAlphaRows(preferences.isNumberRowEnabled, currentLang, shiftState)
-            KeyboardMode.SYMBOLS_1 -> KeyLayoutHelper.getSymbols1Rows(preferences.isNumberRowEnabled)
-            KeyboardMode.SYMBOLS_2 -> KeyLayoutHelper.getSymbols2Rows(preferences.isNumberRowEnabled)
+            KeyboardMode.SYMBOLS_1 -> KeyLayoutHelper.getSymbols1Rows(preferences.isNumberRowEnabled, currentLang)
+            KeyboardMode.SYMBOLS_2 -> KeyLayoutHelper.getSymbols2Rows(preferences.isNumberRowEnabled, currentLang)
             KeyboardMode.DIALPAD -> KeyLayoutHelper.getDialpadRows()
             KeyboardMode.EMOJI -> emptyList()
         }
@@ -882,7 +882,7 @@ class CustomKeyboardView @JvmOverloads constructor(
                 keyboardMode = when (key.primaryText) {
                     "?123" -> KeyboardMode.SYMBOLS_1
                     "=\\<" -> KeyboardMode.SYMBOLS_2
-                    "ABC" -> KeyboardMode.ALPHA
+                    "ABC", "अआइ", "हिंदी" -> KeyboardMode.ALPHA
                     else -> KeyboardMode.ALPHA
                 }
                 renderKeyboardLayout()

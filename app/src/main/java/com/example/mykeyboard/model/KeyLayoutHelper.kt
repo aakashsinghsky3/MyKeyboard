@@ -333,7 +333,10 @@ object KeyLayoutHelper {
         return rows
     }
 
-    fun getSymbols1Rows(isNumberRowEnabled: Boolean = false): List<List<KeyModel>> {
+    fun getSymbols1Rows(
+        isNumberRowEnabled: Boolean = false,
+        language: KeyboardLanguage = KeyboardLanguage.ENGLISH
+    ): List<List<KeyModel>> {
         val rows = mutableListOf<List<KeyModel>>()
 
         if (isNumberRowEnabled) {
@@ -363,10 +366,12 @@ object KeyLayoutHelper {
         r3.add(KeyModel(primaryText = "DEL", type = KeyType.BACKSPACE, weight = 1.4f))
         rows.add(r3)
 
-        // Row 4: [ABC] [EMOJI] [COMMA] [SPACE] [PERIOD] [ENTER]
+        val alphaLabel = if (language == KeyboardLanguage.HINDI) "अआइ" else "ABC"
+
+        // Row 4: [ABC / अआइ] [EMOJI] [COMMA] [SPACE] [PERIOD] [ENTER]
         rows.add(
             listOf(
-                KeyModel(primaryText = "ABC", type = KeyType.MODE_CHANGE, weight = 1.4f),
+                KeyModel(primaryText = alphaLabel, type = KeyType.MODE_CHANGE, weight = 1.4f),
                 KeyModel(primaryText = "😀", type = KeyType.EMOJI, weight = 1.1f),
                 KeyModel(primaryText = ",", type = KeyType.COMMA, weight = 1.0f),
                 KeyModel(primaryText = " ", type = KeyType.SPACE, weight = 4.0f),
@@ -378,7 +383,10 @@ object KeyLayoutHelper {
         return rows
     }
 
-    fun getSymbols2Rows(isNumberRowEnabled: Boolean = false): List<List<KeyModel>> {
+    fun getSymbols2Rows(
+        isNumberRowEnabled: Boolean = false,
+        language: KeyboardLanguage = KeyboardLanguage.ENGLISH
+    ): List<List<KeyModel>> {
         val rows = mutableListOf<List<KeyModel>>()
 
         if (isNumberRowEnabled) {
@@ -408,10 +416,12 @@ object KeyLayoutHelper {
         r3.add(KeyModel(primaryText = "DEL", type = KeyType.BACKSPACE, weight = 1.4f))
         rows.add(r3)
 
-        // Row 4: [ABC] [EMOJI] [COMMA] [SPACE] [PERIOD] [ENTER]
+        val alphaLabel = if (language == KeyboardLanguage.HINDI) "अआइ" else "ABC"
+
+        // Row 4: [ABC / अआइ] [EMOJI] [COMMA] [SPACE] [PERIOD] [ENTER]
         rows.add(
             listOf(
-                KeyModel(primaryText = "ABC", type = KeyType.MODE_CHANGE, weight = 1.4f),
+                KeyModel(primaryText = alphaLabel, type = KeyType.MODE_CHANGE, weight = 1.4f),
                 KeyModel(primaryText = "😀", type = KeyType.EMOJI, weight = 1.1f),
                 KeyModel(primaryText = ",", type = KeyType.COMMA, weight = 1.0f),
                 KeyModel(primaryText = " ", type = KeyType.SPACE, weight = 4.0f),
