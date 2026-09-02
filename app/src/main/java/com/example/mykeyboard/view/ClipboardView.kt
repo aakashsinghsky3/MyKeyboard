@@ -29,7 +29,7 @@ class ClipboardView @JvmOverloads constructor(
     }
 
     private var listener: ClipboardListener? = null
-    private var currentTheme: KeyboardTheme = KeyboardTheme.MATERIAL_DARK
+    private var currentTheme: KeyboardTheme = KeyboardTheme.AMOLED_MIDNIGHT
     private val clipboardManager = ClipboardHistoryManager(context)
 
     private val headerLayout: LinearLayout

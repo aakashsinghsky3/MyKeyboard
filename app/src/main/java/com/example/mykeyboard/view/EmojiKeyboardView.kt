@@ -39,7 +39,7 @@ class EmojiKeyboardView @JvmOverloads constructor(
     }
 
     private var listener: EmojiListener? = null
-    private var currentTheme: KeyboardTheme = KeyboardTheme.MATERIAL_DARK
+    private var currentTheme: KeyboardTheme = KeyboardTheme.AMOLED_MIDNIGHT
     private var selectedCategoryIndex = 0
 
     private val scrollCategories: HorizontalScrollView
