@@ -268,15 +268,16 @@ class CustomKeyboardView @JvmOverloads constructor(
         val hasRight = !result.right.isNullOrEmpty()
         val hasAnyCandidate = hasLeft || hasCenter || hasRight
 
+        // Always keep toolbar actions (Settings, Clipboard, Dialpad) visible!
+        toolbarActionsLayout.visibility = View.VISIBLE
+
         if (prefix.isNotEmpty() || hasAnyCandidate) {
-            toolbarActionsLayout.visibility = View.GONE
             candidatesLayout.visibility = View.VISIBLE
 
             candidateLeftTv.visibility = if (hasLeft) View.VISIBLE else View.GONE
             candidateCenterTv.visibility = if (hasCenter) View.VISIBLE else View.GONE
             candidateRightTv.visibility = if (hasRight) View.VISIBLE else View.GONE
         } else {
-            toolbarActionsLayout.visibility = View.VISIBLE
             candidatesLayout.visibility = View.GONE
 
             candidateLeftTv.visibility = View.GONE
