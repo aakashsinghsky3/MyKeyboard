@@ -29,7 +29,7 @@ class PredictionEngine(context: Context) {
                         if (parts.size == 2) {
                             val word = parts[0].lowercase()
                             val freq = parts[1].toIntOrNull() ?: 1
-                            if (word.isNotEmpty() && word.all { it in 'a'..'z' }) {
+                            if (word.isNotEmpty()) {
                                 tempMap[word] = freq
 
                                 val maxLen = minOf(4, word.length)
@@ -225,7 +225,19 @@ class PredictionEngine(context: Context) {
         "kam", "jyada", "zyada", "sahi", "galat", "shukriya", "dhanyawad", "namaste", "alvida", "waise",
         "lekin", "magar", "par", "pe", "se", "ko", "ke", "ki", "ka", "aur", "ya", "toh", "to", "matlab",
         "kuch", "sab", "apna", "apni", "apne", "mera", "meri", "mere", "tera", "teri", "tere", "unka",
-        "unki", "unke", "iska", "iski", "iske"
+        "unki", "unke", "iska", "iski", "iske",
+
+        // Hindi Devanagari Words
+        "नमस्ते", "आप", "कैसे", "हैं", "धन्यवाद", "आज", "कल", "समय", "काम", "घर", "दोस्त", "परिवार", "भारत",
+        "बात", "सुप्रभात", "शुभरात्रि", "क्या", "कब", "कहाँ", "क्यों", "अच्छा", "हाँ", "नहीं", "ठीक", "अरे",
+
+        // Haryanvi Devanagari & Roman Words
+        "रामराम", "किमे", "कड़े", "इब", "थारे", "मारे", "किते", "घणा", "छाछ", "हुक्का", "चौपाल", "बाता",
+        "बाळक", "ताऊ", "ताई", "कोन्या", "आछो", "चाले", "धाकड़", "सुणो", "इबै", "काका", "काकी", "छोरा",
+        "छोरी", "भीतर", "बाहर", "खाणा", "पीणा", "सोणा", "बढ़िया", "मोज", "कड़ेन", "बेटा", "बेटी", "गाडी",
+        "ramram", "kime", "kade", "ib", "thare", "mare", "kite", "ghana", "balak", "tau", "tai", "konya",
+        "acho", "chale", "dhakad", "suno", "ibai", "chora", "chori", "bhitar", "bahar", "khana", "peena",
+        "sona", "badhiya", "mauj", "batao", "chalo", "rupya", "kharcha", "gaadi", "tractor", "khet"
     )
 
     fun learnWord(word: String) {

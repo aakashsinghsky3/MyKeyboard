@@ -22,6 +22,7 @@ import android.view.MotionEvent
 import android.view.View
 import android.view.animation.OvershootInterpolator
 import android.view.inputmethod.EditorInfo
+import com.example.mykeyboard.model.KeyboardLanguage
 import android.widget.FrameLayout
 import android.widget.ImageView
 import android.widget.LinearLayout
@@ -494,8 +495,9 @@ class CustomKeyboardView @JvmOverloads constructor(
     private fun renderKeyboardLayout() {
         rowsLayout.removeAllViews()
 
+        val currentLang = KeyboardLanguage.fromId(preferences.currentLanguage)
         val rows = when (keyboardMode) {
-            KeyboardMode.ALPHA -> KeyLayoutHelper.getAlphaRows(preferences.isNumberRowEnabled)
+            KeyboardMode.ALPHA -> KeyLayoutHelper.getAlphaRows(preferences.isNumberRowEnabled, currentLang)
             KeyboardMode.SYMBOLS_1 -> KeyLayoutHelper.getSymbols1Rows(preferences.isNumberRowEnabled)
             KeyboardMode.SYMBOLS_2 -> KeyLayoutHelper.getSymbols2Rows(preferences.isNumberRowEnabled)
             KeyboardMode.DIALPAD -> KeyLayoutHelper.getDialpadRows()
@@ -875,6 +877,22 @@ class CustomKeyboardView @JvmOverloads constructor(
             KeyType.ENTER -> {
                 val action = imeOptions and EditorInfo.IME_MASK_ACTION
                 actionListener?.onEnter(action)
+            }
+            KeyType.LANGUAGE_SWITCH -> {
+                val nextLang = when (preferences.currentLanguage) {
+                    "en" -> "hi"
+                    "hi" -> "hr"
+                    "hr" -> "en"
+                    else -> "en"
+                }
+                preferences.currentLanguage = nextLang
+                val toastName = when (nextLang) {
+                    "hi" -> "हिंदी (Hindi)"
+                    "hr" -> "हरियाणवी (Haryanvi)"
+                    else -> "English"
+                }
+                Toast.makeText(context, "Language: $toastName", Toast.LENGTH_SHORT).show()
+                renderKeyboardLayout()
             }
             KeyType.SETTINGS -> {
                 actionListener?.onOpenSettings()

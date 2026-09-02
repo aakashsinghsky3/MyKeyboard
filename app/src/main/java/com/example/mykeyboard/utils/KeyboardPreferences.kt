@@ -47,6 +47,10 @@ class KeyboardPreferences(context: Context) {
         get() = prefs.getFloat(KEY_HEIGHT_SCALE, 1.0f)
         set(value) = prefs.edit().putFloat(KEY_HEIGHT_SCALE, value).apply()
 
+    var currentLanguage: String
+        get() = prefs.getString(KEY_LANGUAGE, "en") ?: "en"
+        set(value) = prefs.edit().putString(KEY_LANGUAGE, value).apply()
+
     var autoCorrectMode: AutoCorrectMode
         get() {
             val modeId = prefs.getString(KEY_AUTO_CORRECT_MODE, AutoCorrectMode.CONSERVATIVE.id)
@@ -78,6 +82,7 @@ class KeyboardPreferences(context: Context) {
 
     companion object {
         private const val PREFS_NAME = "my_keyboard_prefs"
+        private const val KEY_LANGUAGE = "key_language"
         const val KEY_THEME = "pref_theme"
         const val KEY_HAPTIC = "pref_haptic"
         const val KEY_HAPTIC_DURATION = "pref_haptic_duration"

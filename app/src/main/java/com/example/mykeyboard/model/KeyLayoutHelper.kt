@@ -11,7 +11,24 @@ enum class KeyType {
     SETTINGS,
     COMMA,
     PERIOD,
+    LANGUAGE_SWITCH,
     SPACER
+}
+
+enum class KeyboardLanguage(
+    val id: String,
+    val displayName: String,
+    val spaceLabel: String
+) {
+    ENGLISH("en", "English", "English"),
+    HINDI("hi", "हिंदी", "हिंदी"),
+    HARYANVI("hr", "हरियाणवी", "हरियाणवी");
+
+    companion object {
+        fun fromId(id: String?): KeyboardLanguage {
+            return values().firstOrNull { it.id == id } ?: ENGLISH
+        }
+    }
 }
 
 enum class ShiftState {
@@ -39,10 +56,17 @@ data class KeyModel(
 )
 
 object KeyLayoutHelper {
-    fun getAlphaRows(isNumberRowEnabled: Boolean): List<List<KeyModel>> {
+    fun getAlphaRows(isNumberRowEnabled: Boolean, language: KeyboardLanguage = KeyboardLanguage.ENGLISH): List<List<KeyModel>> {
+        return when (language) {
+            KeyboardLanguage.HINDI -> getHindiRows(isNumberRowEnabled)
+            KeyboardLanguage.HARYANVI -> getHaryanviRows(isNumberRowEnabled)
+            KeyboardLanguage.ENGLISH -> getEnglishRows(isNumberRowEnabled)
+        }
+    }
+
+    private fun getEnglishRows(isNumberRowEnabled: Boolean): List<List<KeyModel>> {
         val rows = mutableListOf<List<KeyModel>>()
 
-        // Optional Number Row
         if (isNumberRowEnabled) {
             val numRow = listOf("1", "2", "3", "4", "5", "6", "7", "8", "9", "0").map {
                 KeyModel(primaryText = it, popupChars = LONG_PRESS_MAP[it] ?: emptyList())
@@ -63,7 +87,7 @@ object KeyLayoutHelper {
         }
         rows.add(r1)
 
-        // Row 2: a s d f g h j k l (with 0.5f side spacers for Gboard alignment)
+        // Row 2: a s d f g h j k l (with 0.5f side spacers)
         val r2List = mutableListOf<KeyModel>()
         r2List.add(KeyModel(primaryText = "", type = KeyType.SPACER, weight = 0.5f))
         val r2Chars = listOf("a", "s", "d", "f", "g", "h", "j", "k", "l")
@@ -99,19 +123,103 @@ object KeyLayoutHelper {
         r3.add(KeyModel(primaryText = "DEL", type = KeyType.BACKSPACE, weight = 1.5f))
         rows.add(r3)
 
-        // Row 4: [?123] [EMOJI] [COMMA] [SPACE] [PERIOD] [ENTER]
+        // Row 4: [?123] [🌐] [COMMA] [SPACE] [PERIOD] [ENTER]
         val r4 = listOf(
-            KeyModel(primaryText = "?123", type = KeyType.MODE_CHANGE, weight = 1.5f),
-            KeyModel(primaryText = "😀", type = KeyType.EMOJI, weight = 1.1f),
-            KeyModel(primaryText = ",", type = KeyType.COMMA, weight = 1.0f),
-            KeyModel(primaryText = " ", type = KeyType.SPACE, weight = 4.0f),
+            KeyModel(primaryText = "?123", type = KeyType.MODE_CHANGE, weight = 1.25f),
+            KeyModel(primaryText = "🌐", type = KeyType.LANGUAGE_SWITCH, weight = 1.0f),
+            KeyModel(primaryText = ",", type = KeyType.COMMA, weight = 0.9f),
+            KeyModel(primaryText = "English", type = KeyType.SPACE, weight = 4.0f),
             KeyModel(
                 primaryText = ".",
                 shiftText = ".",
                 popupChars = listOf("...", "!", "?", ",", "-", "@"),
                 type = KeyType.PERIOD,
-                weight = 1.0f
+                weight = 0.9f
             ),
+            KeyModel(primaryText = "ENTER", type = KeyType.ENTER, weight = 1.5f)
+        )
+        rows.add(r4)
+
+        return rows
+    }
+
+    fun getHindiRows(isNumberRowEnabled: Boolean): List<List<KeyModel>> {
+        val rows = mutableListOf<List<KeyModel>>()
+
+        if (isNumberRowEnabled) {
+            val numRow = listOf("१", "२", "३", "४", "५", "६", "७", "८", "९", "०").map {
+                KeyModel(primaryText = it)
+            }
+            rows.add(numRow)
+        }
+
+        // Row 1: क ख ग घ ङ च छ ज झ ञ
+        val r1Chars = listOf("क", "ख", "ग", "घ", "ङ", "च", "छ", "ज", "झ", "ञ")
+        val r1 = r1Chars.map { KeyModel(primaryText = it, popupChars = listOf(it, "${it}ा", "${it}ि", "${it}ी", "${it}ु", "${it}ू", "${it}े", "${it}ो")) }
+        rows.add(r1)
+
+        // Row 2: ट ठ ड ढ ण त थ द ध न
+        val r2Chars = listOf("ट", "ठ", "ड", "ढ", "ण", "त", "थ", "द", "ध", "न")
+        val r2 = r2Chars.map { KeyModel(primaryText = it, popupChars = listOf(it, "${it}ा", "${it}ि", "${it}ी", "${it}ु", "${it}ू", "${it}े", "${it}ो")) }
+        rows.add(r2)
+
+        // Row 3: [SHIFT] प फ ब भ म य र ल व [DEL]
+        val r3 = mutableListOf<KeyModel>()
+        r3.add(KeyModel(primaryText = "SHIFT", type = KeyType.SHIFT, weight = 1.5f))
+        val r3Chars = listOf("प", "फ", "ब", "भ", "म", "य", "र", "ल", "व")
+        r3Chars.forEach { r3.add(KeyModel(primaryText = it, popupChars = listOf(it, "${it}ा", "${it}ि", "${it}ी", "${it}ु", "${it}ू", "${it}े", "${it}ो"))) }
+        r3.add(KeyModel(primaryText = "DEL", type = KeyType.BACKSPACE, weight = 1.5f))
+        rows.add(r3)
+
+        // Row 4: [?123] [🌐] [ श ] [ space (हिंदी) ] [ ह ] [Enter]
+        val r4 = listOf(
+            KeyModel(primaryText = "?123", type = KeyType.MODE_CHANGE, weight = 1.25f),
+            KeyModel(primaryText = "🌐", type = KeyType.LANGUAGE_SWITCH, weight = 1.0f),
+            KeyModel(primaryText = "श", type = KeyType.CHARACTER, weight = 0.9f),
+            KeyModel(primaryText = "हिंदी", type = KeyType.SPACE, weight = 4.0f),
+            KeyModel(primaryText = "ह", type = KeyType.CHARACTER, weight = 0.9f),
+            KeyModel(primaryText = "ENTER", type = KeyType.ENTER, weight = 1.5f)
+        )
+        rows.add(r4)
+
+        return rows
+    }
+
+    fun getHaryanviRows(isNumberRowEnabled: Boolean): List<List<KeyModel>> {
+        val rows = mutableListOf<List<KeyModel>>()
+
+        if (isNumberRowEnabled) {
+            val numRow = listOf("1", "2", "3", "4", "5", "6", "7", "8", "9", "0").map {
+                KeyModel(primaryText = it)
+            }
+            rows.add(numRow)
+        }
+
+        // Row 1: क ख ग घ च छ ज झ ट ठ
+        val r1Chars = listOf("क", "ख", "ग", "घ", "च", "छ", "ज", "झ", "ट", "ठ")
+        val r1 = r1Chars.map { KeyModel(primaryText = it, popupChars = listOf(it, "${it}ा", "${it}ि", "${it}ी", "${it}ु", "${it}ू", "${it}े", "${it}ो")) }
+        rows.add(r1)
+
+        // Row 2: ड ढ त थ द ध न प फ ब
+        val r2Chars = listOf("ड", "ढ", "त", "थ", "द", "ध", "न", "प", "फ", "ब")
+        val r2 = r2Chars.map { KeyModel(primaryText = it, popupChars = listOf(it, "${it}ा", "${it}ि", "${it}ी", "${it}ु", "${it}ू", "${it}े", "${it}ो")) }
+        rows.add(r2)
+
+        // Row 3: [SHIFT] भ म य र ल व श स ह [DEL]
+        val r3 = mutableListOf<KeyModel>()
+        r3.add(KeyModel(primaryText = "SHIFT", type = KeyType.SHIFT, weight = 1.5f))
+        val r3Chars = listOf("भ", "म", "य", "र", "ल", "व", "श", "स", "ह")
+        r3Chars.forEach { r3.add(KeyModel(primaryText = it, popupChars = listOf(it, "${it}ा", "${it}ि", "${it}ी", "${it}ु", "${it}ू", "${it}े", "${it}ो"))) }
+        r3.add(KeyModel(primaryText = "DEL", type = KeyType.BACKSPACE, weight = 1.5f))
+        rows.add(r3)
+
+        // Row 4: [?123] [🌐] [ , ] [ space (हरियाणवी) ] [ . ] [Enter]
+        val r4 = listOf(
+            KeyModel(primaryText = "?123", type = KeyType.MODE_CHANGE, weight = 1.25f),
+            KeyModel(primaryText = "🌐", type = KeyType.LANGUAGE_SWITCH, weight = 1.0f),
+            KeyModel(primaryText = ",", type = KeyType.COMMA, weight = 0.9f),
+            KeyModel(primaryText = "हरियाणवी", type = KeyType.SPACE, weight = 4.0f),
+            KeyModel(primaryText = ".", type = KeyType.PERIOD, weight = 0.9f),
             KeyModel(primaryText = "ENTER", type = KeyType.ENTER, weight = 1.5f)
         )
         rows.add(r4)
