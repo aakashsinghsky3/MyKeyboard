@@ -16,13 +16,14 @@ class PredictionEngine(context: Context) {
     private val prefixIndex = java.util.concurrent.ConcurrentHashMap<String, MutableList<Pair<String, Int>>>()
 
     init {
-        // Load 46,000+ word dictionary from assets asynchronously
+        // Load 333,000+ word dictionary (3.3 Lakh words) from dictionary.txt.gz asynchronously
         Thread {
             try {
                 val tempMap = mutableMapOf<String, Int>()
                 val tempPrefixMap = mutableMapOf<String, MutableList<Pair<String, Int>>>()
 
-                context.assets.open("dictionary.txt").bufferedReader().useLines { lines ->
+                val gzipStream = java.util.zip.GZIPInputStream(context.assets.open("dictionary.txt.gz"))
+                gzipStream.bufferedReader().useLines { lines ->
                     lines.forEach { line ->
                         val parts = line.trim().split("\\s+".toRegex())
                         if (parts.size == 2) {
@@ -35,7 +36,7 @@ class PredictionEngine(context: Context) {
                                 for (len in 1..maxLen) {
                                     val prefix = word.substring(0, len)
                                     val list = tempPrefixMap.getOrPut(prefix) { mutableListOf() }
-                                    if (list.size < 40) {
+                                    if (list.size < 50) {
                                         list.add(Pair(word, freq))
                                     }
                                 }
