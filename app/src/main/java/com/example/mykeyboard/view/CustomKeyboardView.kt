@@ -663,24 +663,28 @@ class CustomKeyboardView @JvmOverloads constructor(
                     }
                     keyLayout.addView(container)
                 } else {
+                    val hasAlt = key.altText.isNotEmpty() && keyboardMode == KeyboardMode.ALPHA
                     val mainTv = TextView(context).apply {
                         val charText = if (shiftState != ShiftState.UNSHIFTED) key.shiftText else key.primaryText
                         text = charText
-                        textSize = 20f
-                        gravity = Gravity.CENTER
+                        textSize = if (hasAlt) 17.5f else 20f
+                        gravity = if (hasAlt) (Gravity.CENTER_HORIZONTAL or Gravity.BOTTOM) else Gravity.CENTER
+                        if (hasAlt) {
+                            setPadding(0, 0, 0, dpToPx(4))
+                        }
                         setTextColor(currentTheme.textColorPrimary)
                         layoutParams = FrameLayout.LayoutParams(FrameLayout.LayoutParams.MATCH_PARENT, FrameLayout.LayoutParams.MATCH_PARENT)
                     }
                     keyLayout.addView(mainTv)
 
-                    if (key.altText.isNotEmpty() && keyboardMode == KeyboardMode.ALPHA) {
+                    if (hasAlt) {
                         val altTv = TextView(context).apply {
                             text = key.altText
-                            textSize = 10f
+                            textSize = 9.5f
                             gravity = Gravity.END or Gravity.TOP
                             setTextColor(currentTheme.textColorSecondary)
                             typeface = Typeface.DEFAULT_BOLD
-                            setPadding(0, dpToPx(3), dpToPx(5), 0)
+                            setPadding(0, dpToPx(2), dpToPx(4), 0)
                             layoutParams = FrameLayout.LayoutParams(FrameLayout.LayoutParams.MATCH_PARENT, FrameLayout.LayoutParams.MATCH_PARENT)
                         }
                         keyLayout.addView(altTv)
