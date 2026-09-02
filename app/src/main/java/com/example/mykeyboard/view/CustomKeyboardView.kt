@@ -889,13 +889,19 @@ class CustomKeyboardView @JvmOverloads constructor(
                 actionListener?.onEnter(action)
             }
             KeyType.LANGUAGE_SWITCH -> {
-                showLanguageSelectionDialog()
+                toggleLanguage()
             }
             KeyType.SETTINGS -> {
                 actionListener?.onOpenSettings()
             }
             KeyType.BACKSPACE, KeyType.SPACER -> {}
         }
+    }
+
+    private fun toggleLanguage() {
+        val nextLang = if (preferences.currentLanguage == "en") "hi" else "en"
+        preferences.currentLanguage = nextLang
+        renderKeyboardLayout()
     }
 
     private fun showLanguageSelectionDialog() {
@@ -924,7 +930,9 @@ class CustomKeyboardView @JvmOverloads constructor(
         }
         try {
             dialog.show()
-        } catch (_: Exception) {}
+        } catch (_: Exception) {
+            toggleLanguage()
+        }
     }
 
     // ---------------------------------------------------------------------------------------------
