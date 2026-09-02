@@ -263,21 +263,29 @@ class CustomKeyboardView @JvmOverloads constructor(
         val result = predictionEngine.getSuggestions(prefix, previousWords, preferences.autoCorrectMode)
         currentSuggestionResult = result
 
+        if (prefix.isNotEmpty()) {
+            toolbarActionsLayout.visibility = View.GONE
+        } else {
+            toolbarActionsLayout.visibility = View.VISIBLE
+        }
+
         // Left Candidate
         candidateLeftTv.text = result.left ?: ""
         candidateLeftTv.visibility = if (result.left.isNullOrEmpty()) View.INVISIBLE else View.VISIBLE
 
         // Center Candidate (Primary / Autocorrect)
         candidateCenterTv.text = result.center ?: ""
-        if (result.isAutoCorrect) {
-            candidateCenterTv.setTypeface(Typeface.DEFAULT_BOLD, Typeface.BOLD_ITALIC)
+        if (result.isAutoCorrect || !result.center.isNullOrEmpty()) {
+            candidateCenterTv.setTextSize(16f)
+            candidateCenterTv.setTypeface(Typeface.DEFAULT_BOLD, if (result.isAutoCorrect) Typeface.BOLD_ITALIC else Typeface.BOLD)
             candidateCenterTv.setTextColor(currentTheme.actionTextColor)
             val bg = GradientDrawable().apply {
-                cornerRadius = dpToPx(10).toFloat()
+                cornerRadius = dpToPx(12).toFloat()
                 setColor(currentTheme.keyActionColor)
             }
             candidateCenterTv.background = bg
         } else {
+            candidateCenterTv.setTextSize(15f)
             candidateCenterTv.typeface = Typeface.DEFAULT_BOLD
             candidateCenterTv.setTextColor(currentTheme.suggestionTextColor)
             val bg = GradientDrawable().apply {
@@ -450,20 +458,21 @@ class CustomKeyboardView @JvmOverloads constructor(
 
     private fun createCandidateTextView(): TextView {
         return TextView(context).apply {
-            textSize = 13f
+            textSize = 15f
             gravity = Gravity.CENTER
             maxLines = 1
+            ellipsize = android.text.TextUtils.TruncateAt.END
             setTextColor(currentTheme.suggestionTextColor)
-            val padH = dpToPx(6)
-            setPadding(padH, dpToPx(3), padH, dpToPx(3))
+            val padH = dpToPx(8)
+            setPadding(padH, dpToPx(4), padH, dpToPx(4))
             val bg = GradientDrawable().apply {
                 cornerRadius = dpToPx(10).toFloat()
                 setColor(currentTheme.keySpecialColor)
             }
             background = bg
-            layoutParams = LayoutParams(0, dpToPx(32), 1.0f).apply {
-                marginStart = dpToPx(2)
-                marginEnd = dpToPx(2)
+            layoutParams = LayoutParams(0, dpToPx(34), 1.0f).apply {
+                marginStart = dpToPx(3)
+                marginEnd = dpToPx(3)
             }
         }
     }
