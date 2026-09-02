@@ -892,40 +892,62 @@ class CustomKeyboardView @JvmOverloads constructor(
     }
 
     private fun initKeyPopup() {
+        val frameLayout = FrameLayout(context)
         val popupView = TextView(context).apply {
             gravity = Gravity.CENTER
             textSize = 28f
             typeface = Typeface.DEFAULT_BOLD
             val pad = dpToPx(8)
             setPadding(pad, pad, pad, pad)
+            layoutParams = FrameLayout.LayoutParams(FrameLayout.LayoutParams.MATCH_PARENT, FrameLayout.LayoutParams.MATCH_PARENT)
         }
+        val popupImageView = ImageView(context).apply {
+            setImageResource(R.drawable.ic_ampersand)
+            val pad = dpToPx(12)
+            setPadding(pad, pad, pad, pad)
+            layoutParams = FrameLayout.LayoutParams(FrameLayout.LayoutParams.MATCH_PARENT, FrameLayout.LayoutParams.MATCH_PARENT)
+            visibility = View.GONE
+        }
+        frameLayout.addView(popupView)
+        frameLayout.addView(popupImageView)
         popupTextView = popupView
-        popupWindow = PopupWindow(popupView, dpToPx(56), dpToPx(64)).apply {
+        popupWindow = PopupWindow(frameLayout, dpToPx(56), dpToPx(64)).apply {
             isTouchable = false
             animationStyle = android.R.style.Animation_Toast
         }
     }
 
     private fun showKeyPopup(anchor: View, text: String) {
-        popupTextView?.let { tv ->
+        val parent = popupTextView?.parent as? FrameLayout ?: return
+        val tv = popupTextView ?: return
+        val iv = parent.getChildAt(1) as? ImageView
+
+        val bg = GradientDrawable().apply {
+            cornerRadius = dpToPx(12).toFloat()
+            setColor(currentTheme.popupBgColor)
+            setStroke(dpToPx(1), currentTheme.rippleColor)
+        }
+        parent.background = bg
+
+        if (text == "&") {
+            tv.visibility = View.GONE
+            iv?.visibility = View.VISIBLE
+            iv?.setColorFilter(currentTheme.popupTextColor)
+        } else {
+            iv?.visibility = View.GONE
+            tv.visibility = View.VISIBLE
             tv.text = text
             tv.setTextColor(currentTheme.popupTextColor)
-            val bg = GradientDrawable().apply {
-                cornerRadius = dpToPx(12).toFloat()
-                setColor(currentTheme.popupBgColor)
-                setStroke(dpToPx(1), currentTheme.rippleColor)
-            }
-            tv.background = bg
-
-            val location = IntArray(2)
-            anchor.getLocationOnScreen(location)
-            val x = location[0] + (anchor.width - dpToPx(56)) / 2
-            val y = location[1] - dpToPx(68)
-
-            try {
-                popupWindow?.showAtLocation(anchor, Gravity.NO_GRAVITY, x, y)
-            } catch (_: Exception) {}
         }
+
+        val location = IntArray(2)
+        anchor.getLocationOnScreen(location)
+        val x = location[0] + (anchor.width - dpToPx(56)) / 2
+        val y = location[1] - dpToPx(68)
+
+        try {
+            popupWindow?.showAtLocation(anchor, Gravity.NO_GRAVITY, x, y)
+        } catch (_: Exception) {}
     }
 
     private fun dismissPopup() {
@@ -960,20 +982,36 @@ class CustomKeyboardView @JvmOverloads constructor(
         accentsContainer?.removeAllViews()
 
         chars.forEach { char ->
-            val tv = TextView(context).apply {
-                text = char
-                textSize = 20f
-                gravity = Gravity.CENTER
-                val size = dpToPx(42)
-                layoutParams = LayoutParams(size, size)
-                setTextColor(currentTheme.popupTextColor)
-                val bg = GradientDrawable().apply {
-                    cornerRadius = dpToPx(8).toFloat()
-                    setColor(Color.TRANSPARENT)
+            val v: View = if (char == "&") {
+                ImageView(context).apply {
+                    setImageResource(R.drawable.ic_ampersand)
+                    setColorFilter(currentTheme.popupTextColor)
+                    val size = dpToPx(42)
+                    val pad = dpToPx(8)
+                    setPadding(pad, pad, pad, pad)
+                    layoutParams = LayoutParams(size, size)
+                    val bg = GradientDrawable().apply {
+                        cornerRadius = dpToPx(8).toFloat()
+                        setColor(Color.TRANSPARENT)
+                    }
+                    background = bg
                 }
-                background = bg
+            } else {
+                TextView(context).apply {
+                    text = char
+                    textSize = 20f
+                    gravity = Gravity.CENTER
+                    val size = dpToPx(42)
+                    layoutParams = LayoutParams(size, size)
+                    setTextColor(currentTheme.popupTextColor)
+                    val bg = GradientDrawable().apply {
+                        cornerRadius = dpToPx(8).toFloat()
+                        setColor(Color.TRANSPARENT)
+                    }
+                    background = bg
+                }
             }
-            accentsContainer?.addView(tv)
+            accentsContainer?.addView(v)
         }
         updateAccentsHighlight()
 
@@ -1081,9 +1119,11 @@ class CustomKeyboardView @JvmOverloads constructor(
                     LayoutParams.WRAP_CONTENT
                 )
             )
-            emojiKeyboardView?.updateFixedContentHeight(targetContentH)
+            val defaultBottomPad = maxOf(getNavigationBarHeight(), dpToPx(48))
+            emojiKeyboardView?.updateFixedContentHeight(targetContentH, defaultBottomPad)
         } else {
-            emojiKeyboardView?.updateFixedContentHeight(targetContentH)
+            val defaultBottomPad = maxOf(getNavigationBarHeight(), dpToPx(48))
+            emojiKeyboardView?.updateFixedContentHeight(targetContentH, defaultBottomPad)
             emojiKeyboardView?.visibility = View.VISIBLE
         }
     }

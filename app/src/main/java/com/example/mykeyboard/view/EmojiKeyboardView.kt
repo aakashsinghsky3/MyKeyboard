@@ -132,11 +132,13 @@ class EmojiKeyboardView @JvmOverloads constructor(
         this.listener = listener
     }
 
-    fun updateFixedContentHeight(targetContentHeight: Int) {
+    fun updateFixedContentHeight(targetContentHeight: Int, bottomPad: Int) {
         val categoryH = dpToPx(40)
-        val bottomBarBtnH = dpToPx(48)
+        val bottomBarBtnH = dpToPx(44)
         val availablePagerHeight = maxOf(dpToPx(120), targetContentHeight - categoryH - bottomBarBtnH)
         viewPager.layoutParams = LayoutParams(LayoutParams.MATCH_PARENT, availablePagerHeight)
+        bottomBar.layoutParams = LayoutParams(LayoutParams.MATCH_PARENT, bottomBarBtnH + bottomPad)
+        bottomBar.setPadding(dpToPx(6), dpToPx(2), dpToPx(6), bottomPad)
     }
 
     private fun setupPagerAdapter() {
