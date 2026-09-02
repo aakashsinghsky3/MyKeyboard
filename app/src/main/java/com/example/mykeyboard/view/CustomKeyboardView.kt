@@ -548,7 +548,7 @@ class CustomKeyboardView @JvmOverloads constructor(
         val bgDrawable = GradientDrawable().apply {
             val corner = when {
                 keyboardMode == KeyboardMode.DIALPAD -> {
-                    if (key.primaryText == "ABC" || key.type == KeyType.ENTER) dpToPx(16).toFloat()
+                    if (key.primaryText == "ABC" || key.primaryText == "?123" || key.type == KeyType.ENTER) dpToPx(16).toFloat()
                     else dpToPx(8).toFloat()
                 }
                 key.type == KeyType.CHARACTER || key.type == KeyType.COMMA || key.type == KeyType.PERIOD -> dpToPx(8).toFloat()
@@ -678,8 +678,13 @@ class CustomKeyboardView @JvmOverloads constructor(
                     val mainTv = TextView(context).apply {
                         val charText = if (shiftState != ShiftState.UNSHIFTED) key.shiftText else key.primaryText
                         text = charText
-                        textSize = if (charText == "&") 18f else if (hasAlt) 17.5f else 20f
-                        typeface = Typeface.DEFAULT_BOLD
+                        if (charText == "&") {
+                            textSize = 19f
+                            typeface = Typeface.create("sans-serif-medium", Typeface.BOLD)
+                        } else {
+                            textSize = if (hasAlt) 17.5f else 20f
+                            typeface = Typeface.DEFAULT_BOLD
+                        }
                         gravity = if (hasAlt) (Gravity.CENTER_HORIZONTAL or Gravity.BOTTOM) else Gravity.CENTER
                         if (hasAlt) {
                             setPadding(0, 0, 0, dpToPx(4))

@@ -245,17 +245,23 @@ object KeyLayoutHelper {
             )
         )
 
-        // Row 4: / | ABC | , | !?# | 0 | = | . | ENTER
+        // Row 4: / | , | 0 | = | .
         rows.add(
             listOf(
-                KeyModel(primaryText = "/", type = KeyType.CHARACTER, weight = 0.9f),
-                KeyModel(primaryText = "ABC", type = KeyType.MODE_CHANGE, weight = 1.1f),
-                KeyModel(primaryText = ",", type = KeyType.COMMA, weight = 0.7f),
-                KeyModel(primaryText = "?123", type = KeyType.MODE_CHANGE, weight = 0.9f),
-                KeyModel(primaryText = "0", popupChars = listOf("+"), weight = 1.3f),
-                KeyModel(primaryText = "=", type = KeyType.CHARACTER, weight = 0.9f),
-                KeyModel(primaryText = ".", type = KeyType.PERIOD, weight = 0.7f),
-                KeyModel(primaryText = "ENTER", type = KeyType.ENTER, weight = 1.1f)
+                KeyModel(primaryText = "/", type = KeyType.CHARACTER, weight = 1.0f),
+                KeyModel(primaryText = ",", type = KeyType.COMMA, weight = 1.4f),
+                KeyModel(primaryText = "0", popupChars = listOf("+"), weight = 1.4f),
+                KeyModel(primaryText = "=", type = KeyType.CHARACTER, weight = 1.4f),
+                KeyModel(primaryText = ".", type = KeyType.PERIOD, weight = 1.0f)
+            )
+        )
+
+        // Row 5: [ABC] [!?#] [ENTER]
+        rows.add(
+            listOf(
+                KeyModel(primaryText = "ABC", type = KeyType.MODE_CHANGE, weight = 2.0f),
+                KeyModel(primaryText = "?123", type = KeyType.MODE_CHANGE, weight = 2.4f),
+                KeyModel(primaryText = "ENTER", type = KeyType.ENTER, weight = 2.0f)
             )
         )
 
