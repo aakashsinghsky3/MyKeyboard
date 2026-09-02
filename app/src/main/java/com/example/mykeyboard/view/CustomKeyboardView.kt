@@ -499,7 +499,7 @@ class CustomKeyboardView @JvmOverloads constructor(
 
         val isTablet = context.resources.configuration.smallestScreenWidthDp >= 600
         val rowMarginB = if (isTablet) dpToPx(6) else dpToPx(4)
-        val defaultBottomPad = getCalculatedBottomPadding()
+        val defaultBottomPad = maxOf(getNavigationBarHeight(), dpToPx(48))
         val targetContentHeight = getStandardContentHeight()
 
         rowsLayout.setPadding(dpToPx(4), dpToPx(3), dpToPx(4), defaultBottomPad)
@@ -1155,7 +1155,8 @@ class CustomKeyboardView @JvmOverloads constructor(
 
     private fun getCalculatedBottomPadding(): Int {
         val isTablet = context.resources.configuration.smallestScreenWidthDp >= 600
-        return if (isTablet) dpToPx(8) else dpToPx(6)
+        val navH = getNavigationBarHeight()
+        return maxOf(navH, if (isTablet) dpToPx(56) else dpToPx(48))
     }
 
     private fun getStandardContentHeight(): Int {
