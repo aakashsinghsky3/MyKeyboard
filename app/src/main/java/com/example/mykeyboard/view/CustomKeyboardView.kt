@@ -629,11 +629,13 @@ class CustomKeyboardView @JvmOverloads constructor(
                 }
             }
             KeyType.SPACE -> {
+                val currentLang = KeyboardLanguage.fromId(preferences.currentLanguage)
                 val spaceTv = TextView(context).apply {
-                    text = "English"
-                    textSize = 13f
+                    text = currentLang.spaceLabel
+                    textSize = 14f
                     gravity = Gravity.CENTER
                     setTextColor(currentTheme.textColorSecondary)
+                    typeface = Typeface.DEFAULT_BOLD
                     layoutParams = FrameLayout.LayoutParams(FrameLayout.LayoutParams.MATCH_PARENT, FrameLayout.LayoutParams.MATCH_PARENT)
                 }
                 keyLayout.addView(spaceTv)
@@ -783,6 +785,14 @@ class CustomKeyboardView @JvmOverloads constructor(
                             showKeyPopup(v, text)
                         }
                         handler.postDelayed(longPressRunnable, 350)
+                    } else if (key.type == KeyType.SPACE || key.type == KeyType.LANGUAGE_SWITCH) {
+                        handler.postDelayed({
+                            if (!isCursorSliding && !isLongPressHandled) {
+                                isLongPressHandled = true
+                                performHapticFeedback()
+                                showLanguageSelectionDialog()
+                            }
+                        }, 400)
                     }
                     true
                 }
@@ -879,25 +889,51 @@ class CustomKeyboardView @JvmOverloads constructor(
                 actionListener?.onEnter(action)
             }
             KeyType.LANGUAGE_SWITCH -> {
-                val nextLang = when (preferences.currentLanguage) {
-                    "en" -> "hi"
-                    "hi" -> "hr"
-                    "hr" -> "en"
-                    else -> "en"
-                }
-                preferences.currentLanguage = nextLang
-                val toastName = when (nextLang) {
-                    "hi" -> "हिंदी (Hindi)"
-                    "hr" -> "हरियाणवी (Haryanvi)"
-                    else -> "English"
-                }
-                Toast.makeText(context, "Language: $toastName", Toast.LENGTH_SHORT).show()
-                renderKeyboardLayout()
+                showLanguageSelectionDialog()
             }
             KeyType.SETTINGS -> {
                 actionListener?.onOpenSettings()
             }
             KeyType.BACKSPACE, KeyType.SPACER -> {}
+        }
+    }
+
+    private fun showLanguageSelectionDialog() {
+        val languages = arrayOf(
+            "English (English & Hinglish / Haryanvi Roman)",
+            "हिंदी (Hindi Devanagari)",
+            "हरियाणवी (Haryanvi Devanagari)"
+        )
+        val langIds = arrayOf("en", "hi", "hr")
+        val currentIdx = langIds.indexOf(preferences.currentLanguage).coerceAtLeast(0)
+
+        val builder = android.app.AlertDialog.Builder(context)
+        builder.setTitle("Select Keyboard Language 🌐")
+        builder.setSingleChoiceItems(languages, currentIdx) { dialog, which ->
+            preferences.currentLanguage = langIds[which]
+            renderKeyboardLayout()
+            dialog.dismiss()
+        }
+        builder.setNegativeButton("Cancel", null)
+
+        val dialog = builder.create()
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+            dialog.window?.setType(android.view.WindowManager.LayoutParams.TYPE_APPLICATION_OVERLAY)
+        } else {
+            @Suppress("DEPRECATION")
+            dialog.window?.setType(android.view.WindowManager.LayoutParams.TYPE_PHONE)
+        }
+        try {
+            dialog.show()
+        } catch (_: Exception) {
+            val nextLang = when (preferences.currentLanguage) {
+                "en" -> "hi"
+                "hi" -> "hr"
+                "hr" -> "en"
+                else -> "en"
+            }
+            preferences.currentLanguage = nextLang
+            renderKeyboardLayout()
         }
     }
 
