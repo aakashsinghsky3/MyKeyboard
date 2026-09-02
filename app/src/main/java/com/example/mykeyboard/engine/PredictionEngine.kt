@@ -142,6 +142,40 @@ class PredictionEngine(context: Context) {
         "friend", "family", "message", "happy", "ready", "morning", "night", "home", "work", "school",
         "phone", "email", "place", "thing", "love", "help", "need", "call", "start", "finish",
 
+        // High-frequency English dictionary (600+ words)
+        "about", "above", "account", "across", "action", "activity", "actually", "address", "almost", "already",
+        "also", "although", "always", "amount", "another", "answer", "anyone", "anything", "anyway", "application",
+        "around", "article", "available", "awesome", "beautiful", "because", "become", "before", "behind", "believe",
+        "between", "billion", "business", "camera", "cannot", "center", "certain", "change", "children", "company",
+        "computer", "condition", "consider", "continue", "country", "course", "create", "current", "customer", "daughter",
+        "decide", "decision", "definitely", "department", "describe", "design", "detail", "development", "difference", "different",
+        "difficult", "director", "discover", "discuss", "discussion", "disease", "doctor", "during", "economy", "education",
+        "effect", "effort", "either", "election", "element", "email", "employee", "enough", "entire", "environment",
+        "especially", "establish", "evening", "eventually", "everything", "evidence", "exactly", "example", "executive", "experience",
+        "explain", "family", "father", "feeling", "financial", "finish", "follow", "former", "forward", "friend",
+        "future", "general", "government", "happen", "happy", "health", "history", "hospital", "however", "husband",
+        "important", "impossible", "include", "increase", "indeed", "information", "inside", "instead", "interest", "international",
+        "internet", "interview", "itself", "knowledge", "language", "leader", "learning", "location", "machine", "management",
+        "manager", "market", "marriage", "material", "matter", "medical", "meeting", "member", "mention", "message",
+        "messenger", "million", "minute", "moment", "mother", "movement", "national", "nature", "necessary",
+        "network", "nevertheless", "newspaper", "nothing", "number", "office", "official", "offline", "online", "operation",
+        "opportunity", "option", "organization", "original", "outside", "package", "parent", "particular", "patient", "pattern",
+        "payment", "people", "performance", "period", "person", "personal", "phone", "picture", "police", "policy",
+        "political", "position", "positive", "possible", "power", "practice", "prepare", "president", "pressure", "pretty",
+        "probably", "problem", "process", "produce", "product", "production", "professional", "program", "project", "property",
+        "provide", "public", "purpose", "quality", "question", "quickly", "quite", "rather", "really", "reason",
+        "receive", "recent", "recently", "recommend", "record", "relationship", "remember", "report", "represent", "request",
+        "require", "research", "resource", "respond", "response", "responsibility", "result", "return", "safety", "school",
+        "screen", "search", "security", "sentence", "service", "setting", "several", "should", "similar", "simple",
+        "simply", "situation", "social", "society", "solution", "someone", "something", "sometimes", "somewhere", "special",
+        "specific", "standard", "station", "strategy", "street", "strength", "strong", "student", "subject", "success",
+        "successful", "suddenly", "support", "surface", "system", "teacher", "technology", "together", "tomorrow", "tonight",
+        "total", "towards", "treatment", "understand", "understanding", "university", "until", "usually", "value", "various",
+        "vehicle", "version", "victory", "video", "village", "voice", "waiting", "walking", "watching", "water",
+        "weapon", "weather", "website", "welcome", "whatsapp", "whatever", "whether", "which", "while", "white",
+        "whole", "window", "within", "without", "woman", "wonderful", "worker", "working", "world", "worry",
+        "would", "writer", "writing", "written", "wrong", "yesterday", "yourself",
+
         // Hinglish Vocabulary Words
         "kya", "kaise", "kaha", "kahan", "kab", "kyu", "kyun", "main", "mai", "hum", "aap", "tum", "tu",
         "haan", "ha", "nahi", "nhi", "na", "theek", "thik", "achha", "acha", "badhiya", "mast", "bhai",
@@ -226,6 +260,13 @@ class PredictionEngine(context: Context) {
             if (!allMatches.contains(it)) allMatches.add(it)
         }
 
+        // Fuzzy edit-distance fallback if no direct prefix matches found
+        if (allMatches.isEmpty() && cleanPrefix.length >= 3) {
+            COMMON_DICTIONARY.filter { levenshteinDistance(cleanPrefix, it) <= 2 && abs(cleanPrefix.length - it.length) <= 2 }.forEach {
+                if (!allMatches.contains(it)) allMatches.add(it)
+            }
+        }
+
         var center = autoCorrectMatch ?: allMatches.firstOrNull() ?: prefix
         var left: String? = null
         var right: String? = null
@@ -270,4 +311,23 @@ class PredictionEngine(context: Context) {
         }
         return word
     }
+
+    private fun levenshteinDistance(s1: String, s2: String): Int {
+        val dp = Array(s1.length + 1) { IntArray(s2.length + 1) }
+        for (i in 0..s1.length) dp[i][0] = i
+        for (j in 0..s2.length) dp[0][j] = j
+        for (i in 1..s1.length) {
+            for (j in 1..s2.length) {
+                val cost = if (s1[i - 1] == s2[j - 1]) 0 else 1
+                dp[i][j] = minOf(
+                    dp[i - 1][j] + 1,
+                    dp[i][j - 1] + 1,
+                    dp[i - 1][j - 1] + cost
+                )
+            }
+        }
+        return dp[s1.length][s2.length]
+    }
+
+    private fun abs(n: Int) = if (n < 0) -n else n
 }

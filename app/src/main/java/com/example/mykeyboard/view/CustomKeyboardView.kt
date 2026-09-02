@@ -678,7 +678,8 @@ class CustomKeyboardView @JvmOverloads constructor(
                     val mainTv = TextView(context).apply {
                         val charText = if (shiftState != ShiftState.UNSHIFTED) key.shiftText else key.primaryText
                         text = charText
-                        textSize = if (hasAlt) 17.5f else 20f
+                        textSize = if (charText == "&") 18f else if (hasAlt) 17.5f else 20f
+                        typeface = Typeface.DEFAULT_BOLD
                         gravity = if (hasAlt) (Gravity.CENTER_HORIZONTAL or Gravity.BOTTOM) else Gravity.CENTER
                         if (hasAlt) {
                             setPadding(0, 0, 0, dpToPx(4))
