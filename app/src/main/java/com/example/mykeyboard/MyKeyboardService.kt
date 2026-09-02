@@ -259,22 +259,28 @@ class MyKeyboardService : InputMethodService(),
             }
         }
 
-        // 2. Auto-Correction on Space
-        val words = textBefore.trimEnd().split(Regex("[^a-zA-Z0-9']")).filter { it.isNotEmpty() }
-        val lastWord = words.lastOrNull() ?: ""
+        // 2. Auto-Correction on Space (Gboard Fast-Typing Engine)
+        if (!textBefore.endsWith(" ")) {
+            val allWords = textBefore.trim().split(Regex("[^a-zA-Z0-9']")).filter { it.isNotEmpty() }
+            val lastWord = allWords.lastOrNull() ?: ""
 
-        if (lastWord.isNotEmpty()) {
-            predictionEngine.learnWord(lastWord)
+            if (lastWord.isNotEmpty()) {
+                val prevWords = allWords.dropLast(1)
+                val suggestionResult = predictionEngine.getSuggestions(lastWord, prevWords, preferences.autoCorrectMode)
+                val bestMatch = suggestionResult.center
 
-            val correction = AutoCorrectEngine.getCorrection(lastWord, preferences.autoCorrectMode)
-            if (correction != null && correction != lastWord) {
-                ic.deleteSurroundingText(lastWord.length, 0)
-                ic.commitText("$correction ", 1)
-                lastSpaceTime = now
-                checkAutoCaps()
-                updatePredictions()
-                recordCurrentSnapshot()
-                return
+                if (!bestMatch.isNullOrEmpty() && bestMatch.lowercase() != lastWord.lowercase()) {
+                    ic.deleteSurroundingText(lastWord.length, 0)
+                    ic.commitText("$bestMatch ", 1)
+                    predictionEngine.learnWord(bestMatch)
+                    lastSpaceTime = now
+                    checkAutoCaps()
+                    updatePredictions()
+                    recordCurrentSnapshot()
+                    return
+                } else {
+                    predictionEngine.learnWord(lastWord)
+                }
             }
         }
 
