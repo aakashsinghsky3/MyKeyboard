@@ -13,22 +13,39 @@ class PredictionEngine(context: Context) {
 
     private val userDb = UserDictionaryDb(context)
     private val assetDictionary = java.util.concurrent.ConcurrentHashMap<String, Int>()
+    private val prefixIndex = java.util.concurrent.ConcurrentHashMap<String, MutableList<Pair<String, Int>>>()
 
     init {
-        // Load dictionary from assets asynchronously
+        // Load 46,000+ word dictionary from assets asynchronously
         Thread {
             try {
+                val tempMap = mutableMapOf<String, Int>()
+                val tempPrefixMap = mutableMapOf<String, MutableList<Pair<String, Int>>>()
+
                 context.assets.open("dictionary.txt").bufferedReader().useLines { lines ->
                     lines.forEach { line ->
                         val parts = line.trim().split("\\s+".toRegex())
                         if (parts.size == 2) {
                             val word = parts[0].lowercase()
                             val freq = parts[1].toIntOrNull() ?: 1
-                            if (word.isNotEmpty()) {
-                                assetDictionary[word] = freq
+                            if (word.isNotEmpty() && word.all { it in 'a'..'z' }) {
+                                tempMap[word] = freq
+
+                                val maxLen = minOf(4, word.length)
+                                for (len in 1..maxLen) {
+                                    val prefix = word.substring(0, len)
+                                    val list = tempPrefixMap.getOrPut(prefix) { mutableListOf() }
+                                    if (list.size < 40) {
+                                        list.add(Pair(word, freq))
+                                    }
+                                }
                             }
                         }
                     }
+                }
+                assetDictionary.putAll(tempMap)
+                tempPrefixMap.forEach { (k, v) ->
+                    prefixIndex[k] = v.sortedByDescending { it.second }.toMutableList()
                 }
             } catch (_: Exception) {}
         }.start()
@@ -265,44 +282,47 @@ class PredictionEngine(context: Context) {
 
         val cleanPrefix = prefix.lowercase()
 
-        // 1. Check auto-correction
-        val autoCorrectMatch = AutoCorrectEngine.getCorrection(prefix, autoCorrectMode)
+        // 1. Check direct typo engine match
+        var autoCorrectMatch = AutoCorrectEngine.getCorrection(prefix, autoCorrectMode)
 
-        // 2. Find prefix matches in learned words + asset dictionary
+        // 2. Query fast prefix index for direct matches
         val prefixMatches = mutableListOf<Pair<String, Int>>()
 
-        // Learned user words (weighted heavily)
+        // User learned words (highest priority)
         learnedWords.forEach { (word, freq) ->
             if (word.startsWith(cleanPrefix)) {
-                prefixMatches.add(Pair(word, 100000 + freq * 100))
+                prefixMatches.add(Pair(word, 1000000 + freq * 1000))
             }
         }
 
-        // Asset dictionary words
-        assetDictionary.forEach { (word, freq) ->
-            if (word.startsWith(cleanPrefix) && prefixMatches.none { it.first == word }) {
-                prefixMatches.add(Pair(word, freq))
+        // Fast prefix index lookup
+        val indexedList = prefixIndex[cleanPrefix.take(4)]
+        if (indexedList != null) {
+            indexedList.forEach { (word, freq) ->
+                if (word.startsWith(cleanPrefix) && prefixMatches.none { it.first == word }) {
+                    prefixMatches.add(Pair(word, freq))
+                }
+            }
+        } else {
+            // Fallback scan for prefixes longer than 4 chars
+            assetDictionary.forEach { (word, freq) ->
+                if (word.startsWith(cleanPrefix) && prefixMatches.none { it.first == word }) {
+                    prefixMatches.add(Pair(word, freq))
+                }
             }
         }
 
-        // Common dictionary fallback
-        COMMON_DICTIONARY.forEach { word ->
-            if (word.startsWith(cleanPrefix) && prefixMatches.none { it.first == word }) {
-                prefixMatches.add(Pair(word, 10))
-            }
-        }
-
-        // Sort candidates by frequency score descending
         val allMatches = prefixMatches.sortedByDescending { it.second }.map { it.first }.toMutableList()
 
-        // Fuzzy edit-distance fallback if < 3 matches found
-        if (allMatches.size < 3 && cleanPrefix.length >= 3) {
-            val fuzzy = assetDictionary.keys.filter {
-                levenshteinDistance(cleanPrefix, it) <= 2 && abs(cleanPrefix.length - it.length) <= 2
-            }.sortedBy { levenshteinDistance(cleanPrefix, it) }
+        // 3. If word is typed with typo and not in dictionary, find closest typo correction
+        if (autoCorrectMatch == null && cleanPrefix.length >= 3 && !assetDictionary.containsKey(cleanPrefix) && !learnedWords.containsKey(cleanPrefix)) {
+            val closestCorrection = assetDictionary.entries
+                .filter { (w, _) -> levenshteinDistance(cleanPrefix, w) <= 2 && abs(cleanPrefix.length - w.length) <= 2 }
+                .maxByOrNull { (w, freq) -> freq - (levenshteinDistance(cleanPrefix, w) * 10000) }
+                ?.key
 
-            fuzzy.forEach {
-                if (!allMatches.contains(it)) allMatches.add(it)
+            if (closestCorrection != null && closestCorrection != cleanPrefix) {
+                autoCorrectMatch = closestCorrection
             }
         }
 
