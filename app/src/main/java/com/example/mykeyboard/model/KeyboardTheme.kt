@@ -145,11 +145,65 @@ enum class KeyboardTheme(
         popupTextColor = Color.parseColor("#1C1B1F"),
         rippleColor = Color.parseColor("#E5C4BC"),
         isDark = false
+    ),
+    PASTEL_OCEAN(
+        id = "pastel_ocean",
+        displayName = "Pastel Ocean",
+        backgroundColor = Color.parseColor("#0F172A"),
+        keyNormalColor = Color.parseColor("#1E293B"),
+        keySpecialColor = Color.parseColor("#334155"),
+        keyActionColor = Color.parseColor("#0EA5E9"),
+        keySpaceColor = Color.parseColor("#1E293B"),
+        textColorPrimary = Color.parseColor("#F8FAFC"),
+        textColorSecondary = Color.parseColor("#38BDF8"),
+        actionTextColor = Color.parseColor("#FFFFFF"),
+        suggestionBgColor = Color.parseColor("#0F172A"),
+        suggestionTextColor = Color.parseColor("#38BDF8"),
+        popupBgColor = Color.parseColor("#1E293B"),
+        popupTextColor = Color.parseColor("#F8FAFC"),
+        rippleColor = Color.parseColor("#475569"),
+        isDark = true
+    ),
+    CHERRY_BLOSSOM(
+        id = "cherry_blossom",
+        displayName = "Cherry Blossom",
+        backgroundColor = Color.parseColor("#FDF2F8"),
+        keyNormalColor = Color.parseColor("#FFFFFF"),
+        keySpecialColor = Color.parseColor("#FCE7F3"),
+        keyActionColor = Color.parseColor("#EC4899"),
+        keySpaceColor = Color.parseColor("#FFFFFF"),
+        textColorPrimary = Color.parseColor("#831843"),
+        textColorSecondary = Color.parseColor("#F472B6"),
+        actionTextColor = Color.parseColor("#FFFFFF"),
+        suggestionBgColor = Color.parseColor("#FDF2F8"),
+        suggestionTextColor = Color.parseColor("#831843"),
+        popupBgColor = Color.parseColor("#FFFFFF"),
+        popupTextColor = Color.parseColor("#831843"),
+        rippleColor = Color.parseColor("#FBCFE8"),
+        isDark = false
+    ),
+    ROYAL_PURPLE(
+        id = "royal_purple",
+        displayName = "Royal Purple",
+        backgroundColor = Color.parseColor("#2E1065"),
+        keyNormalColor = Color.parseColor("#3B0764"),
+        keySpecialColor = Color.parseColor("#581C87"),
+        keyActionColor = Color.parseColor("#A855F7"),
+        keySpaceColor = Color.parseColor("#3B0764"),
+        textColorPrimary = Color.parseColor("#F3E8FF"),
+        textColorSecondary = Color.parseColor("#C084FC"),
+        actionTextColor = Color.parseColor("#FFFFFF"),
+        suggestionBgColor = Color.parseColor("#2E1065"),
+        suggestionTextColor = Color.parseColor("#C084FC"),
+        popupBgColor = Color.parseColor("#3B0764"),
+        popupTextColor = Color.parseColor("#F3E8FF"),
+        rippleColor = Color.parseColor("#6B21A8"),
+        isDark = true
     );
 
     companion object {
         fun fromId(id: String?): KeyboardTheme {
-            return values().firstOrNull { it.id == id } ?: GBOARD_PEACH
+            return values().firstOrNull { it.id == id } ?: AMOLED_MIDNIGHT
         }
     }
 }

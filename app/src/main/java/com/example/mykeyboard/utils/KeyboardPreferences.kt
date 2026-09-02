@@ -12,7 +12,7 @@ class KeyboardPreferences(context: Context) {
 
     var theme: KeyboardTheme
         get() {
-            val themeId = prefs.getString(KEY_THEME, KeyboardTheme.GBOARD_PEACH.id)
+            val themeId = prefs.getString(KEY_THEME, KeyboardTheme.AMOLED_MIDNIGHT.id)
             return KeyboardTheme.fromId(themeId)
         }
         set(value) {
