@@ -63,18 +63,23 @@ object KeyLayoutHelper {
         }
         rows.add(r1)
 
-        // Row 2: a s d f g h j k l
+        // Row 2: a s d f g h j k l (with 0.5f side spacers for Gboard alignment)
+        val r2List = mutableListOf<KeyModel>()
+        r2List.add(KeyModel(primaryText = "", type = KeyType.SPACER, weight = 0.5f))
         val r2Chars = listOf("a", "s", "d", "f", "g", "h", "j", "k", "l")
         val r2Alt = listOf("@", "#", "$", "%", "&", "-", "+", "(", ")")
-        val r2 = r2Chars.mapIndexed { idx, char ->
+        r2Chars.forEachIndexed { idx, char ->
             val alt = r2Alt[idx]
-            KeyModel(
-                primaryText = char,
-                altText = alt,
-                popupChars = getPopupCharsForKey(char, alt)
+            r2List.add(
+                KeyModel(
+                    primaryText = char,
+                    altText = alt,
+                    popupChars = getPopupCharsForKey(char, alt)
+                )
             )
         }
-        rows.add(r2)
+        r2List.add(KeyModel(primaryText = "", type = KeyType.SPACER, weight = 0.5f))
+        rows.add(r2List)
 
         // Row 3: [SHIFT] z x c v b n m [BACKSPACE]
         val r3 = mutableListOf<KeyModel>()

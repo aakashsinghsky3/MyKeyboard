@@ -535,7 +535,7 @@ class CustomKeyboardView @JvmOverloads constructor(
         }
 
         val isTablet = context.resources.configuration.smallestScreenWidthDp >= 600
-        val keyMarginH = if (isTablet) dpToPx(4) else dpToPx(3)
+        val keyMarginH = if (isTablet) dpToPx(3) else dpToPx(2)
         val keyLayout = FrameLayout(context).apply {
             layoutParams = LayoutParams(0, LayoutParams.MATCH_PARENT, key.weight).apply {
                 marginStart = keyMarginH
@@ -1162,11 +1162,11 @@ class CustomKeyboardView @JvmOverloads constructor(
     private fun getStandardContentHeight(): Int {
         val isTablet = context.resources.configuration.smallestScreenWidthDp >= 600
         val isLandscape = context.resources.configuration.orientation == android.content.res.Configuration.ORIENTATION_LANDSCAPE
-        val baseRowHeight = if (isTablet) dpToPx(54) else if (isLandscape) dpToPx(42) else dpToPx(48)
+        val baseRowHeight = if (isTablet) dpToPx(54) else if (isLandscape) dpToPx(42) else dpToPx(46)
         val scaledRowHeight = (baseRowHeight * preferences.heightScale).toInt()
-        val numStandardRows = 4
+        val numRows = if (preferences.isNumberRowEnabled && keyboardMode == KeyboardMode.ALPHA) 5 else 4
         val rowMarginB = if (isTablet) dpToPx(6) else dpToPx(4)
-        return (numStandardRows * scaledRowHeight) + ((numStandardRows - 1) * rowMarginB)
+        return (numRows * scaledRowHeight) + ((numRows - 1) * rowMarginB)
     }
 
     private fun dpToPx(dp: Int): Int {
