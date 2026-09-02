@@ -21,8 +21,7 @@ enum class KeyboardLanguage(
     val spaceLabel: String
 ) {
     ENGLISH("en", "English", "English"),
-    HINDI("hi", "हिंदी", "हिंदी"),
-    HARYANVI("hr", "हरियाणवी", "हरियाणवी");
+    HINDI_HARYANVI("hi", "हिंदी / हरियाणवी", "हिंदी / हरियाणवी");
 
     companion object {
         fun fromId(id: String?): KeyboardLanguage {
@@ -62,8 +61,7 @@ object KeyLayoutHelper {
         shiftState: ShiftState = ShiftState.UNSHIFTED
     ): List<List<KeyModel>> {
         return when (language) {
-            KeyboardLanguage.HINDI -> getHindiRows(isNumberRowEnabled, shiftState)
-            KeyboardLanguage.HARYANVI -> getHaryanviRows(isNumberRowEnabled, shiftState)
+            KeyboardLanguage.HINDI_HARYANVI -> getHindiRows(isNumberRowEnabled, shiftState)
             KeyboardLanguage.ENGLISH -> getEnglishRows(isNumberRowEnabled)
         }
     }
@@ -223,7 +221,7 @@ object KeyLayoutHelper {
             KeyModel(primaryText = "?123", type = KeyType.MODE_CHANGE, weight = 1.25f),
             KeyModel(primaryText = "🌐", type = KeyType.LANGUAGE_SWITCH, weight = 1.0f),
             KeyModel(primaryText = "श", type = KeyType.CHARACTER, weight = 0.9f),
-            KeyModel(primaryText = "हिंदी", type = KeyType.SPACE, weight = 4.0f),
+            KeyModel(primaryText = "हिंदी / हरियाणवी", type = KeyType.SPACE, weight = 4.0f),
             KeyModel(primaryText = "ह", type = KeyType.CHARACTER, weight = 0.9f),
             KeyModel(primaryText = "ENTER", type = KeyType.ENTER, weight = 1.5f)
         )

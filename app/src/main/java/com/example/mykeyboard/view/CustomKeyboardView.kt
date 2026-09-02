@@ -889,7 +889,7 @@ class CustomKeyboardView @JvmOverloads constructor(
                 actionListener?.onEnter(action)
             }
             KeyType.LANGUAGE_SWITCH -> {
-                showLanguageSelectionDialog()
+                toggleLanguage()
             }
             KeyType.SETTINGS -> {
                 actionListener?.onOpenSettings()
@@ -898,14 +898,19 @@ class CustomKeyboardView @JvmOverloads constructor(
         }
     }
 
+    private fun toggleLanguage() {
+        val nextLang = if (preferences.currentLanguage == "en") "hi" else "en"
+        preferences.currentLanguage = nextLang
+        renderKeyboardLayout()
+    }
+
     private fun showLanguageSelectionDialog() {
         val languages = arrayOf(
             "English (English & Hinglish / Haryanvi Roman)",
-            "हिंदी (Hindi Devanagari)",
-            "हरियाणवी (Haryanvi Devanagari)"
+            "हिंदी / हरियाणवी (Devanagari)"
         )
-        val langIds = arrayOf("en", "hi", "hr")
-        val currentIdx = langIds.indexOf(preferences.currentLanguage).coerceAtLeast(0)
+        val langIds = arrayOf("en", "hi")
+        val currentIdx = if (preferences.currentLanguage == "hi") 1 else 0
 
         val builder = android.app.AlertDialog.Builder(context)
         builder.setTitle("Select Keyboard Language 🌐")
@@ -926,14 +931,7 @@ class CustomKeyboardView @JvmOverloads constructor(
         try {
             dialog.show()
         } catch (_: Exception) {
-            val nextLang = when (preferences.currentLanguage) {
-                "en" -> "hi"
-                "hi" -> "hr"
-                "hr" -> "en"
-                else -> "en"
-            }
-            preferences.currentLanguage = nextLang
-            renderKeyboardLayout()
+            toggleLanguage()
         }
     }
 
