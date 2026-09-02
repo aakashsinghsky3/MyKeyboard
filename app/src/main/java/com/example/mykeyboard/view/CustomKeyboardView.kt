@@ -535,7 +535,7 @@ class CustomKeyboardView @JvmOverloads constructor(
         }
 
         val isTablet = context.resources.configuration.smallestScreenWidthDp >= 600
-        val keyMarginH = if (isTablet) dpToPx(3) else dpToPx(2)
+        val keyMarginH = if (isTablet) dpToPx(3) else (1.5f * context.resources.displayMetrics.density).toInt()
         val keyLayout = FrameLayout(context).apply {
             layoutParams = LayoutParams(0, LayoutParams.MATCH_PARENT, key.weight).apply {
                 marginStart = keyMarginH
@@ -544,7 +544,13 @@ class CustomKeyboardView @JvmOverloads constructor(
         }
 
         val bgDrawable = GradientDrawable().apply {
-            cornerRadius = if (keyboardMode == KeyboardMode.DIALPAD) dpToPx(12).toFloat() else dpToPx(11).toFloat()
+            val corner = when {
+                keyboardMode == KeyboardMode.DIALPAD -> dpToPx(12).toFloat()
+                key.type == KeyType.CHARACTER -> dpToPx(5).toFloat()
+                key.type == KeyType.SPACE -> dpToPx(16).toFloat()
+                else -> dpToPx(10).toFloat()
+            }
+            cornerRadius = corner
             val color = when (key.type) {
                 KeyType.ENTER -> currentTheme.keyActionColor
                 KeyType.SPACE -> currentTheme.keySpaceColor
@@ -865,14 +871,7 @@ class CustomKeyboardView @JvmOverloads constructor(
     // Key Animations & Popups
     // ---------------------------------------------------------------------------------------------
     private fun animateKeyPress(view: View, isPressed: Boolean) {
-        val scale = if (isPressed) 0.92f else 1.0f
-        val animX = ObjectAnimator.ofFloat(view, "scaleX", scale).apply { duration = 75 }
-        val animY = ObjectAnimator.ofFloat(view, "scaleY", scale).apply { duration = 75 }
-        AnimatorSet().apply {
-            playTogether(animX, animY)
-            interpolator = OvershootInterpolator(1.2f)
-            start()
-        }
+        view.alpha = if (isPressed) 0.65f else 1.0f
     }
 
     private fun initKeyPopup() {
