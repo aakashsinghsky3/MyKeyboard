@@ -498,7 +498,7 @@ class CustomKeyboardView @JvmOverloads constructor(
         }
 
         val isTablet = context.resources.configuration.smallestScreenWidthDp >= 600
-        val rowMarginB = if (isTablet) dpToPx(6) else dpToPx(4)
+        val rowMarginB = if (isTablet) dpToPx(5) else (3.0f * context.resources.displayMetrics.density).toInt()
         val defaultBottomPad = maxOf(getNavigationBarHeight(), dpToPx(48))
         val targetContentHeight = getStandardContentHeight()
 
@@ -537,7 +537,7 @@ class CustomKeyboardView @JvmOverloads constructor(
         }
 
         val isTablet = context.resources.configuration.smallestScreenWidthDp >= 600
-        val keyMarginH = if (isTablet) dpToPx(3) else (1.5f * context.resources.displayMetrics.density).toInt()
+        val keyMarginH = if (isTablet) dpToPx(5) else (3.0f * context.resources.displayMetrics.density).toInt()
         val keyLayout = FrameLayout(context).apply {
             layoutParams = LayoutParams(0, LayoutParams.MATCH_PARENT, key.weight).apply {
                 marginStart = keyMarginH
@@ -1169,9 +1169,9 @@ class CustomKeyboardView @JvmOverloads constructor(
         val isTablet = context.resources.configuration.smallestScreenWidthDp >= 600
         val isLandscape = context.resources.configuration.orientation == android.content.res.Configuration.ORIENTATION_LANDSCAPE
         val numRows = if (preferences.isNumberRowEnabled) 5 else 4
-        val baseRowHeight = if (isTablet) dpToPx(56) else if (isLandscape) dpToPx(42) else if (numRows == 5) dpToPx(48) else dpToPx(52)
+        val baseRowHeight = if (isTablet) dpToPx(50) else if (isLandscape) dpToPx(38) else if (numRows == 5) dpToPx(40) else dpToPx(42)
         val scaledRowHeight = (baseRowHeight * preferences.heightScale).toInt()
-        val rowMarginB = if (isTablet) dpToPx(6) else dpToPx(4)
+        val rowMarginB = if (isTablet) dpToPx(5) else (3.0f * context.resources.displayMetrics.density).toInt()
         return (numRows * scaledRowHeight) + ((numRows - 1) * rowMarginB)
     }
 
