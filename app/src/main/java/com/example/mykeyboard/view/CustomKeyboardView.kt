@@ -59,7 +59,6 @@ class CustomKeyboardView @JvmOverloads constructor(
         fun onUndo()
         fun onRedo()
         fun onAddWordToDictionary(word: String)
-        fun onProfessionalRephrase()
         fun onReplaceText(oldText: String, newText: String)
     }
 
@@ -363,12 +362,6 @@ class CustomKeyboardView @JvmOverloads constructor(
             }
         }
         toolbarActionsLayout.addView(dialpadBtn)
-
-        // 4. Professional Rephrase Button (Briefcase 💼)
-        val professionalBtn = createToolbarIconButton(R.drawable.ic_briefcase) {
-            actionListener?.onProfessionalRephrase()
-        }
-        toolbarActionsLayout.addView(professionalBtn)
 
         // 5. 3 Candidate TextViews in CandidatesLayout
         candidateLeftTv = createCandidateTextView().apply {

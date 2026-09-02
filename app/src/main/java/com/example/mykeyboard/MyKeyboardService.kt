@@ -14,7 +14,6 @@ import android.view.inputmethod.InputConnection
 import com.example.mykeyboard.engine.AutoCorrectEngine
 import com.example.mykeyboard.engine.ClipboardHistoryManager
 import com.example.mykeyboard.engine.PredictionEngine
-import com.example.mykeyboard.engine.ProfessionalToneEngine
 import com.example.mykeyboard.engine.UndoRedoManager
 import android.widget.Toast
 import com.example.mykeyboard.model.ShiftState
@@ -340,24 +339,6 @@ class MyKeyboardService : InputMethodService(),
     override fun onAddWordToDictionary(word: String) {
         predictionEngine.addCustomWord(word)
         updatePredictions()
-    }
-
-    override fun onProfessionalRephrase() {
-        val ic = currentInputConnection ?: return
-        val fullText = ic.getTextBeforeCursor(1000, 0)?.toString() ?: ""
-        val activeSentence = fullText.split(Regex("[.\\n?!]")).lastOrNull()?.trim() ?: fullText.trim()
-        val textToRephrase = if (activeSentence.isNotEmpty()) activeSentence else fullText.trim()
-
-        if (textToRephrase.isEmpty()) {
-            Toast.makeText(this, "Type a sentence first, then tap 💼 Professional Tone!", Toast.LENGTH_SHORT).show()
-            return
-        }
-
-        val options = ProfessionalToneEngine.getProfessionalRephrasings(textToRephrase)
-        if (options.isNotEmpty()) {
-            Toast.makeText(this, "💼 Professional Corporate Suggestions Ready", Toast.LENGTH_SHORT).show()
-            keyboardView?.showProfessionalSuggestions(textToRephrase, options)
-        }
     }
 
     override fun onReplaceText(oldText: String, newText: String) {
