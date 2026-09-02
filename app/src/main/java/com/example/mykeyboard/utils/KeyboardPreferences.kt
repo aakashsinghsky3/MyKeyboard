@@ -53,7 +53,7 @@ class KeyboardPreferences(context: Context) {
 
     var autoCorrectMode: AutoCorrectMode
         get() {
-            val modeId = prefs.getString(KEY_AUTO_CORRECT_MODE, AutoCorrectMode.CONSERVATIVE.id)
+            val modeId = prefs.getString(KEY_AUTO_CORRECT_MODE, AutoCorrectMode.OFF.id)
             return AutoCorrectMode.fromId(modeId)
         }
         set(value) {
