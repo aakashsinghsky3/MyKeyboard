@@ -491,8 +491,8 @@ class CustomKeyboardView @JvmOverloads constructor(
 
         val rows = when (keyboardMode) {
             KeyboardMode.ALPHA -> KeyLayoutHelper.getAlphaRows(preferences.isNumberRowEnabled)
-            KeyboardMode.SYMBOLS_1 -> KeyLayoutHelper.getSymbols1Rows()
-            KeyboardMode.SYMBOLS_2 -> KeyLayoutHelper.getSymbols2Rows()
+            KeyboardMode.SYMBOLS_1 -> KeyLayoutHelper.getSymbols1Rows(preferences.isNumberRowEnabled)
+            KeyboardMode.SYMBOLS_2 -> KeyLayoutHelper.getSymbols2Rows(preferences.isNumberRowEnabled)
             KeyboardMode.DIALPAD -> KeyLayoutHelper.getDialpadRows()
             KeyboardMode.EMOJI -> emptyList()
         }
@@ -1163,7 +1163,7 @@ class CustomKeyboardView @JvmOverloads constructor(
     private fun getStandardContentHeight(): Int {
         val isTablet = context.resources.configuration.smallestScreenWidthDp >= 600
         val isLandscape = context.resources.configuration.orientation == android.content.res.Configuration.ORIENTATION_LANDSCAPE
-        val numRows = if (preferences.isNumberRowEnabled && keyboardMode == KeyboardMode.ALPHA) 5 else 4
+        val numRows = if (preferences.isNumberRowEnabled) 5 else 4
         val baseRowHeight = if (isTablet) dpToPx(56) else if (isLandscape) dpToPx(42) else if (numRows == 5) dpToPx(48) else dpToPx(52)
         val scaledRowHeight = (baseRowHeight * preferences.heightScale).toInt()
         val rowMarginB = if (isTablet) dpToPx(6) else dpToPx(4)

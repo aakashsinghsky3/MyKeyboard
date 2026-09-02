@@ -54,11 +54,11 @@ object KeyLayoutHelper {
         val r1Chars = listOf("q", "w", "e", "r", "t", "y", "u", "i", "o", "p")
         val r1Alt = listOf("1", "2", "3", "4", "5", "6", "7", "8", "9", "0")
         val r1 = r1Chars.mapIndexed { idx, char ->
-            val alt = if (isNumberRowEnabled) "" else r1Alt[idx]
+            val alt = r1Alt[idx]
             KeyModel(
                 primaryText = char,
                 altText = alt,
-                popupChars = getPopupCharsForKey(char, r1Alt[idx])
+                popupChars = getPopupCharsForKey(char, alt)
             )
         }
         rows.add(r1)
@@ -73,7 +73,7 @@ object KeyLayoutHelper {
             r2List.add(
                 KeyModel(
                     primaryText = char,
-                    altText = "",
+                    altText = alt,
                     popupChars = getPopupCharsForKey(char, alt)
                 )
             )
@@ -91,7 +91,7 @@ object KeyLayoutHelper {
             r3.add(
                 KeyModel(
                     primaryText = char,
-                    altText = "",
+                    altText = alt,
                     popupChars = getPopupCharsForKey(char, alt)
                 )
             )
@@ -119,13 +119,14 @@ object KeyLayoutHelper {
         return rows
     }
 
-    fun getSymbols1Rows(): List<List<KeyModel>> {
+    fun getSymbols1Rows(isNumberRowEnabled: Boolean = false): List<List<KeyModel>> {
         val rows = mutableListOf<List<KeyModel>>()
 
-        // Row 0: 1 2 3 4 5 6 7 8 9 0
-        rows.add(listOf("1", "2", "3", "4", "5", "6", "7", "8", "9", "0").map {
-            KeyModel(primaryText = it, popupChars = LONG_PRESS_MAP[it] ?: emptyList())
-        })
+        if (isNumberRowEnabled) {
+            rows.add(listOf("1", "2", "3", "4", "5", "6", "7", "8", "9", "0").map {
+                KeyModel(primaryText = it, popupChars = LONG_PRESS_MAP[it] ?: emptyList())
+            })
+        }
 
         // Row 1: @ # $ % & - + ( ) /
         val r1Chars = listOf("@", "#", "$", "%", "&", "-", "+", "(", ")", "/")
@@ -163,13 +164,14 @@ object KeyLayoutHelper {
         return rows
     }
 
-    fun getSymbols2Rows(): List<List<KeyModel>> {
+    fun getSymbols2Rows(isNumberRowEnabled: Boolean = false): List<List<KeyModel>> {
         val rows = mutableListOf<List<KeyModel>>()
 
-        // Row 0: 1 2 3 4 5 6 7 8 9 0
-        rows.add(listOf("1", "2", "3", "4", "5", "6", "7", "8", "9", "0").map {
-            KeyModel(primaryText = it, popupChars = LONG_PRESS_MAP[it] ?: emptyList())
-        })
+        if (isNumberRowEnabled) {
+            rows.add(listOf("1", "2", "3", "4", "5", "6", "7", "8", "9", "0").map {
+                KeyModel(primaryText = it, popupChars = LONG_PRESS_MAP[it] ?: emptyList())
+            })
+        }
 
         // Row 1: ~ ` | • √ π ÷ × ¶ ∆
         val r1Chars = listOf("~", "`", "|", "•", "√", "π", "÷", "×", "¶", "∆")
