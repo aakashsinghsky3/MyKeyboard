@@ -941,7 +941,7 @@ class CustomKeyboardView @JvmOverloads constructor(
 
     private fun showAccentsPopup(anchor: View, chars: List<String>) {
         currentPopupChars = chars
-        activeAccentIndex = -1
+        activeAccentIndex = 0
         accentsContainer?.removeAllViews()
 
         chars.forEach { char ->
@@ -960,6 +960,7 @@ class CustomKeyboardView @JvmOverloads constructor(
             }
             accentsContainer?.addView(tv)
         }
+        updateAccentsHighlight()
 
         val location = IntArray(2)
         anchor.getLocationOnScreen(location)
