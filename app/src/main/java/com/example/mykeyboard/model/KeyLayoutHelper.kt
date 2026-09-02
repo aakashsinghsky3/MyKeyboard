@@ -56,10 +56,14 @@ data class KeyModel(
 )
 
 object KeyLayoutHelper {
-    fun getAlphaRows(isNumberRowEnabled: Boolean, language: KeyboardLanguage = KeyboardLanguage.ENGLISH): List<List<KeyModel>> {
+    fun getAlphaRows(
+        isNumberRowEnabled: Boolean,
+        language: KeyboardLanguage = KeyboardLanguage.ENGLISH,
+        shiftState: ShiftState = ShiftState.UNSHIFTED
+    ): List<List<KeyModel>> {
         return when (language) {
-            KeyboardLanguage.HINDI -> getHindiRows(isNumberRowEnabled)
-            KeyboardLanguage.HARYANVI -> getHaryanviRows(isNumberRowEnabled)
+            KeyboardLanguage.HINDI -> getHindiRows(isNumberRowEnabled, shiftState)
+            KeyboardLanguage.HARYANVI -> getHaryanviRows(isNumberRowEnabled, shiftState)
             KeyboardLanguage.ENGLISH -> getEnglishRows(isNumberRowEnabled)
         }
     }
@@ -143,7 +147,7 @@ object KeyLayoutHelper {
         return rows
     }
 
-    fun getHindiRows(isNumberRowEnabled: Boolean): List<List<KeyModel>> {
+    fun getHindiRows(isNumberRowEnabled: Boolean, shiftState: ShiftState = ShiftState.UNSHIFTED): List<List<KeyModel>> {
         val rows = mutableListOf<List<KeyModel>>()
 
         if (isNumberRowEnabled) {
@@ -153,23 +157,66 @@ object KeyLayoutHelper {
             rows.add(numRow)
         }
 
-        // Row 1: क ख ग घ ङ च छ ज झ ञ
-        val r1Chars = listOf("क", "ख", "ग", "घ", "ङ", "च", "छ", "ज", "झ", "ञ")
-        val r1 = r1Chars.map { KeyModel(primaryText = it, popupChars = listOf(it, "${it}ा", "${it}ि", "${it}ी", "${it}ु", "${it}ू", "${it}े", "${it}ो")) }
-        rows.add(r1)
+        if (shiftState != ShiftState.UNSHIFTED) {
+            // VOWELS (अ से अः) & MATRAS MODE ON SHIFT
+            // Row 1: अ आ इ ई उ ऊ ऋ ए ऐ ओ
+            val r1Vowels = listOf("अ", "आ", "इ", "ई", "उ", "ऊ", "ऋ", "ए", "ऐ", "ओ")
+            rows.add(r1Vowels.map { KeyModel(primaryText = it, popupChars = listOf(it, "ऑ", "ऍ")) })
 
-        // Row 2: ट ठ ड ढ ण त थ द ध न
-        val r2Chars = listOf("ट", "ठ", "ड", "ढ", "ण", "त", "थ", "द", "ध", "न")
-        val r2 = r2Chars.map { KeyModel(primaryText = it, popupChars = listOf(it, "${it}ा", "${it}ि", "${it}ी", "${it}ु", "${it}ू", "${it}े", "${it}ो")) }
-        rows.add(r2)
+            // Row 2: औ अं अः ा ि ी ु ू े ै
+            val r2Matras = listOf("औ", "अं", "अः", "ा", "ि", "ी", "ु", "ू", "े", "ै")
+            rows.add(r2Matras.map { KeyModel(primaryText = it) })
 
-        // Row 3: [SHIFT] प फ ब भ म य र ल व [DEL]
-        val r3 = mutableListOf<KeyModel>()
-        r3.add(KeyModel(primaryText = "SHIFT", type = KeyType.SHIFT, weight = 1.5f))
-        val r3Chars = listOf("प", "फ", "ब", "भ", "म", "य", "र", "ल", "व")
-        r3Chars.forEach { r3.add(KeyModel(primaryText = it, popupChars = listOf(it, "${it}ा", "${it}ि", "${it}ी", "${it}ु", "${it}ू", "${it}े", "${it}ो"))) }
-        r3.add(KeyModel(primaryText = "DEL", type = KeyType.BACKSPACE, weight = 1.5f))
-        rows.add(r3)
+            // Row 3: [SHIFT] ो ौ ं ः ृ ॉ ॅ ऑ ऍ [DEL]
+            val r3 = mutableListOf<KeyModel>()
+            r3.add(KeyModel(primaryText = "अ/ा", type = KeyType.SHIFT, weight = 1.5f))
+            val r3Extra = listOf("ो", "ौ", "ं", "ः", "ृ", "ॉ", "ॅ", "ऑ", "ऍ")
+            r3Extra.forEach { r3.add(KeyModel(primaryText = it)) }
+            r3.add(KeyModel(primaryText = "DEL", type = KeyType.BACKSPACE, weight = 1.5f))
+            rows.add(r3)
+        } else {
+            // CONSONANTS MODE (क-ह) WITH MATRA POPUPS & ALT VOWELS
+            // Row 1: क(अ) ख(आ) ग(इ) घ(ई) ङ(उ) च(ऊ) छ(ऋ) ज(ए) झ(ऐ) ञ(ओ)
+            val r1Chars = listOf("क", "ख", "ग", "घ", "ङ", "च", "छ", "ज", "झ", "ञ")
+            val r1Alt = listOf("अ", "आ", "इ", "ई", "उ", "ऊ", "ऋ", "ए", "ऐ", "ओ")
+            val r1 = r1Chars.mapIndexed { idx, char ->
+                KeyModel(
+                    primaryText = char,
+                    altText = r1Alt[idx],
+                    popupChars = listOf(char, "${char}ा", "${char}ि", "${char}ी", "${char}ु", "${char}ू", "${char}े", "${char}ै", "${char}ो", "${char}ौ", "${char}ं", "ा", "ि", "ी", "ु", "ू", "े", "ै", "ो", "ौ", "ं")
+                )
+            }
+            rows.add(r1)
+
+            // Row 2: ट(औ) ठ(अं) ड(अः) ढ(ा) ण(ि) त(ी) थ(ु) द(ू) ध(े) न(ै)
+            val r2Chars = listOf("ट", "ठ", "ड", "ढ", "ण", "त", "थ", "द", "ध", "न")
+            val r2Alt = listOf("औ", "अं", "अः", "ा", "ि", "ी", "ु", "ू", "े", "ै")
+            val r2 = r2Chars.mapIndexed { idx, char ->
+                KeyModel(
+                    primaryText = char,
+                    altText = r2Alt[idx],
+                    popupChars = listOf(char, "${char}ा", "${char}ि", "${char}ी", "${char}ु", "${char}ू", "${char}े", "${char}ै", "${char}ो", "${char}ौ", "${char}ं", "ा", "ि", "ी", "ु", "ू", "े", "ै", "ो", "ौ", "ं")
+                )
+            }
+            rows.add(r2)
+
+            // Row 3: [SHIFT] प फ ब भ म य र ल व [DEL]
+            val r3 = mutableListOf<KeyModel>()
+            r3.add(KeyModel(primaryText = "अ/ा", type = KeyType.SHIFT, weight = 1.5f))
+            val r3Chars = listOf("प", "फ", "ब", "भ", "म", "य", "र", "ल", "व")
+            val r3Alt = listOf("ो", "ौ", "ं", "ः", "ृ", "ॉ", "ॅ", "ऑ", "ऍ")
+            r3Chars.forEachIndexed { idx, char ->
+                r3.add(
+                    KeyModel(
+                        primaryText = char,
+                        altText = r3Alt[idx],
+                        popupChars = listOf(char, "${char}ा", "${char}ि", "${char}ी", "${char}ु", "${char}ू", "${char}े", "${char}ै", "${char}ो", "${char}ौ", "${char}ं", "ा", "ि", "ी", "ु", "ू", "े", "ै", "ो", "ौ", "ं")
+                    )
+                )
+            }
+            r3.add(KeyModel(primaryText = "DEL", type = KeyType.BACKSPACE, weight = 1.5f))
+            rows.add(r3)
+        }
 
         // Row 4: [?123] [🌐] [ श ] [ space (हिंदी) ] [ ह ] [Enter]
         val r4 = listOf(
@@ -185,7 +232,7 @@ object KeyLayoutHelper {
         return rows
     }
 
-    fun getHaryanviRows(isNumberRowEnabled: Boolean): List<List<KeyModel>> {
+    fun getHaryanviRows(isNumberRowEnabled: Boolean, shiftState: ShiftState = ShiftState.UNSHIFTED): List<List<KeyModel>> {
         val rows = mutableListOf<List<KeyModel>>()
 
         if (isNumberRowEnabled) {
@@ -195,23 +242,66 @@ object KeyLayoutHelper {
             rows.add(numRow)
         }
 
-        // Row 1: क ख ग घ च छ ज झ ट ठ
-        val r1Chars = listOf("क", "ख", "ग", "घ", "च", "छ", "ज", "झ", "ट", "ठ")
-        val r1 = r1Chars.map { KeyModel(primaryText = it, popupChars = listOf(it, "${it}ा", "${it}ि", "${it}ी", "${it}ु", "${it}ू", "${it}े", "${it}ो")) }
-        rows.add(r1)
+        if (shiftState != ShiftState.UNSHIFTED) {
+            // VOWELS (अ से अः) & MATRAS MODE ON SHIFT
+            // Row 1: अ आ इ ई उ ऊ ऋ ए ऐ ओ
+            val r1Vowels = listOf("अ", "आ", "इ", "ई", "उ", "ऊ", "ऋ", "ए", "ऐ", "ओ")
+            rows.add(r1Vowels.map { KeyModel(primaryText = it, popupChars = listOf(it, "ऑ", "ऍ")) })
 
-        // Row 2: ड ढ त थ द ध न प फ ब
-        val r2Chars = listOf("ड", "ढ", "त", "थ", "द", "ध", "न", "प", "फ", "ब")
-        val r2 = r2Chars.map { KeyModel(primaryText = it, popupChars = listOf(it, "${it}ा", "${it}ि", "${it}ी", "${it}ु", "${it}ू", "${it}े", "${it}ो")) }
-        rows.add(r2)
+            // Row 2: औ अं अः ा ि ी ु ू े ै
+            val r2Matras = listOf("औ", "अं", "अः", "ा", "ि", "ी", "ु", "ू", "े", "ै")
+            rows.add(r2Matras.map { KeyModel(primaryText = it) })
 
-        // Row 3: [SHIFT] भ म य र ल व श स ह [DEL]
-        val r3 = mutableListOf<KeyModel>()
-        r3.add(KeyModel(primaryText = "SHIFT", type = KeyType.SHIFT, weight = 1.5f))
-        val r3Chars = listOf("भ", "म", "य", "र", "ल", "व", "श", "स", "ह")
-        r3Chars.forEach { r3.add(KeyModel(primaryText = it, popupChars = listOf(it, "${it}ा", "${it}ि", "${it}ी", "${it}ु", "${it}ू", "${it}े", "${it}ो"))) }
-        r3.add(KeyModel(primaryText = "DEL", type = KeyType.BACKSPACE, weight = 1.5f))
-        rows.add(r3)
+            // Row 3: [SHIFT] ो ौ ं ः ृ ॉ ॅ ऑ ऍ [DEL]
+            val r3 = mutableListOf<KeyModel>()
+            r3.add(KeyModel(primaryText = "अ/ा", type = KeyType.SHIFT, weight = 1.5f))
+            val r3Extra = listOf("ो", "ौ", "ं", "ः", "ृ", "ॉ", "ॅ", "ऑ", "ऍ")
+            r3Extra.forEach { r3.add(KeyModel(primaryText = it)) }
+            r3.add(KeyModel(primaryText = "DEL", type = KeyType.BACKSPACE, weight = 1.5f))
+            rows.add(r3)
+        } else {
+            // CONSONANTS MODE (क-ह) WITH MATRA POPUPS & ALT VOWELS
+            // Row 1: क(अ) ख(आ) ग(इ) घ(ई) च(उ) छ(ऊ) ज(ऋ) झ(ए) ट(ऐ) ठ(ओ)
+            val r1Chars = listOf("क", "ख", "ग", "घ", "च", "छ", "ज", "झ", "ट", "ठ")
+            val r1Alt = listOf("अ", "आ", "इ", "ई", "उ", "ऊ", "ऋ", "ए", "ऐ", "ओ")
+            val r1 = r1Chars.mapIndexed { idx, char ->
+                KeyModel(
+                    primaryText = char,
+                    altText = r1Alt[idx],
+                    popupChars = listOf(char, "${char}ा", "${char}ि", "${char}ी", "${char}ु", "${char}ू", "${char}े", "${char}ै", "${char}ो", "${char}ौ", "${char}ं", "ा", "ि", "ी", "ु", "ू", "े", "ै", "ो", "ौ", "ं")
+                )
+            }
+            rows.add(r1)
+
+            // Row 2: ड(औ) ढ(अं) त(अः) थ(ा) द(ि) ध(ी) न(ु) प(ू) फ(े) ब(ै)
+            val r2Chars = listOf("ड", "ढ", "त", "थ", "द", "ध", "न", "प", "फ", "ब")
+            val r2Alt = listOf("औ", "अं", "अः", "ा", "ि", "ी", "ु", "ू", "े", "ै")
+            val r2 = r2Chars.mapIndexed { idx, char ->
+                KeyModel(
+                    primaryText = char,
+                    altText = r2Alt[idx],
+                    popupChars = listOf(char, "${char}ा", "${char}ि", "${char}ी", "${char}ु", "${char}ू", "${char}े", "${char}ै", "${char}ो", "${char}ौ", "${char}ं", "ा", "ि", "ी", "ु", "ू", "े", "ै", "ो", "ौ", "ं")
+                )
+            }
+            rows.add(r2)
+
+            // Row 3: [SHIFT] भ म य र ल व श स ह [DEL]
+            val r3 = mutableListOf<KeyModel>()
+            r3.add(KeyModel(primaryText = "अ/ा", type = KeyType.SHIFT, weight = 1.5f))
+            val r3Chars = listOf("भ", "म", "य", "र", "ल", "व", "श", "स", "ह")
+            val r3Alt = listOf("ो", "ौ", "ं", "ः", "ृ", "ॉ", "ॅ", "ऑ", "ऍ")
+            r3Chars.forEachIndexed { idx, char ->
+                r3.add(
+                    KeyModel(
+                        primaryText = char,
+                        altText = r3Alt[idx],
+                        popupChars = listOf(char, "${char}ा", "${char}ि", "${char}ी", "${char}ु", "${char}ू", "${char}े", "${char}ै", "${char}ो", "${char}ौ", "${char}ं", "ा", "ि", "ी", "ु", "ू", "े", "ै", "ो", "ौ", "ं")
+                    )
+                )
+            }
+            r3.add(KeyModel(primaryText = "DEL", type = KeyType.BACKSPACE, weight = 1.5f))
+            rows.add(r3)
+        }
 
         // Row 4: [?123] [🌐] [ , ] [ space (हरियाणवी) ] [ . ] [Enter]
         val r4 = listOf(
