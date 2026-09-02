@@ -142,7 +142,28 @@ object AutoCorrectEngine {
         "weather" to "whether",
         "wensday" to "Wednesday",
         "wich" to "which",
-        "yeild" to "yield"
+        "yeild" to "yield",
+        "woudl" to "would",
+        "hsould" to "should",
+        "coudl" to "could",
+        "taht" to "that",
+        "yuo" to "you",
+        "mya" to "may",
+        "whcih" to "which",
+        "peopel" to "people",
+        "knwo" to "know",
+        "jsut" to "just",
+        "hve" to "have",
+        "grea" to "great",
+        "somethin" to "something",
+        "beuatiful" to "beautiful",
+        "diffrent" to "different",
+        "againt" to "against",
+        "probaly" to "probably",
+        "rha" to "raha",
+        "rhe" to "rahe",
+        "rhi" to "rahi",
+        "kr" to "kar"
     )
 
     fun getCorrection(word: String, mode: AutoCorrectMode): String? {

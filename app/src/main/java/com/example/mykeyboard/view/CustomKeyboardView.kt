@@ -544,7 +544,7 @@ class CustomKeyboardView @JvmOverloads constructor(
         }
 
         val bgDrawable = GradientDrawable().apply {
-            cornerRadius = if (keyboardMode == KeyboardMode.DIALPAD) dpToPx(12).toFloat() else if (isTablet) dpToPx(9).toFloat() else dpToPx(7).toFloat()
+            cornerRadius = if (keyboardMode == KeyboardMode.DIALPAD) dpToPx(12).toFloat() else dpToPx(11).toFloat()
             val color = when (key.type) {
                 KeyType.ENTER -> currentTheme.keyActionColor
                 KeyType.SPACE -> currentTheme.keySpaceColor

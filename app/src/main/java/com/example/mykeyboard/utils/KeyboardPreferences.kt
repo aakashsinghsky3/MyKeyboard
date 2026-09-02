@@ -12,7 +12,7 @@ class KeyboardPreferences(context: Context) {
 
     var theme: KeyboardTheme
         get() {
-            val themeId = prefs.getString(KEY_THEME, KeyboardTheme.MATERIAL_DARK.id)
+            val themeId = prefs.getString(KEY_THEME, KeyboardTheme.GBOARD_PEACH.id)
             return KeyboardTheme.fromId(themeId)
         }
         set(value) {
@@ -36,7 +36,7 @@ class KeyboardPreferences(context: Context) {
         set(value) = prefs.edit().putBoolean(KEY_POPUP, value).apply()
 
     var isNumberRowEnabled: Boolean
-        get() = prefs.getBoolean(KEY_NUMBER_ROW, false)
+        get() = prefs.getBoolean(KEY_NUMBER_ROW, true)
         set(value) = prefs.edit().putBoolean(KEY_NUMBER_ROW, value).apply()
 
     var isAutoCapsEnabled: Boolean

@@ -127,11 +127,29 @@ enum class KeyboardTheme(
         popupTextColor = Color.parseColor("#F8FAFC"),
         rippleColor = Color.parseColor("#33445C"),
         isDark = true
+    ),
+    GBOARD_PEACH(
+        id = "gboard_peach",
+        displayName = "Material 3 Peach",
+        backgroundColor = Color.parseColor("#F9ECE8"),
+        keyNormalColor = Color.parseColor("#FFFFFF"),
+        keySpecialColor = Color.parseColor("#F4D8D2"),
+        keyActionColor = Color.parseColor("#F2C8C0"),
+        keySpaceColor = Color.parseColor("#FFFFFF"),
+        textColorPrimary = Color.parseColor("#1C1B1F"),
+        textColorSecondary = Color.parseColor("#7C757E"),
+        actionTextColor = Color.parseColor("#1C1B1F"),
+        suggestionBgColor = Color.parseColor("#F9ECE8"),
+        suggestionTextColor = Color.parseColor("#1C1B1F"),
+        popupBgColor = Color.parseColor("#FFFFFF"),
+        popupTextColor = Color.parseColor("#1C1B1F"),
+        rippleColor = Color.parseColor("#E5C4BC"),
+        isDark = false
     );
 
     companion object {
         fun fromId(id: String?): KeyboardTheme {
-            return values().firstOrNull { it.id == id } ?: MATERIAL_DARK
+            return values().firstOrNull { it.id == id } ?: GBOARD_PEACH
         }
     }
 }
