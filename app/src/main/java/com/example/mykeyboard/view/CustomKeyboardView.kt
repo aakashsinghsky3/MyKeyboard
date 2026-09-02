@@ -509,9 +509,11 @@ class CustomKeyboardView @JvmOverloads constructor(
             val rowHeight = maxOf(dpToPx(32), (targetContentHeight - totalMargins) / rows.size)
 
             rows.forEach { keyRow ->
+                val totalWeight = keyRow.sumOf { it.weight.toDouble() }.toFloat()
                 val rowLayout = LinearLayout(context).apply {
                     orientation = HORIZONTAL
                     gravity = Gravity.CENTER
+                    weightSum = totalWeight
                     layoutParams = LayoutParams(LayoutParams.MATCH_PARENT, rowHeight).apply {
                         bottomMargin = rowMarginB
                     }
@@ -546,9 +548,9 @@ class CustomKeyboardView @JvmOverloads constructor(
         val bgDrawable = GradientDrawable().apply {
             val corner = when {
                 keyboardMode == KeyboardMode.DIALPAD -> dpToPx(12).toFloat()
-                key.type == KeyType.CHARACTER -> dpToPx(5).toFloat()
+                key.type == KeyType.CHARACTER || key.type == KeyType.COMMA || key.type == KeyType.PERIOD -> dpToPx(8).toFloat()
                 key.type == KeyType.SPACE -> dpToPx(16).toFloat()
-                else -> dpToPx(10).toFloat()
+                else -> dpToPx(16).toFloat()
             }
             cornerRadius = corner
             val color = when (key.type) {
