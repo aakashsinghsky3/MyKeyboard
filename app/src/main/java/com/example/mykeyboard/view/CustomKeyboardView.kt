@@ -508,7 +508,7 @@ class CustomKeyboardView @JvmOverloads constructor(
         }
 
         val rowMarginB = (3.0f * context.resources.displayMetrics.density).toInt()
-        val defaultBottomPad = maxOf(getNavigationBarHeight(), dpToPx(48))
+        val defaultBottomPad = maxOf(getNavigationBarHeight(), dpToPx(6))
         val targetContentHeight = getStandardContentHeight()
 
         rowsLayout.setPadding(dpToPx(8), dpToPx(3), dpToPx(8), defaultBottomPad)
@@ -578,7 +578,7 @@ class CustomKeyboardView @JvmOverloads constructor(
                     if (shiftState != ShiftState.UNSHIFTED) currentTheme.keyActionColor
                     else currentTheme.keySpecialColor
                 }
-                KeyType.BACKSPACE, KeyType.MODE_CHANGE, KeyType.EMOJI, KeyType.COMMA, KeyType.PERIOD -> currentTheme.keySpecialColor
+                KeyType.BACKSPACE, KeyType.MODE_CHANGE, KeyType.EMOJI, KeyType.COMMA, KeyType.PERIOD, KeyType.LANGUAGE_SWITCH -> currentTheme.keySpecialColor
                 else -> currentTheme.keyNormalColor
             }
             setColor(color)
@@ -662,6 +662,16 @@ class CustomKeyboardView @JvmOverloads constructor(
                     layoutParams = FrameLayout.LayoutParams(FrameLayout.LayoutParams.MATCH_PARENT, FrameLayout.LayoutParams.MATCH_PARENT)
                 }
                 keyLayout.addView(modeTv)
+            }
+            KeyType.LANGUAGE_SWITCH -> {
+                val globeIcon = ImageView(context).apply {
+                    setImageResource(R.drawable.ic_globe)
+                    setColorFilter(currentTheme.textColorPrimary)
+                    val pad = dpToPx(11)
+                    setPadding(pad, pad, pad, pad)
+                    layoutParams = FrameLayout.LayoutParams(FrameLayout.LayoutParams.MATCH_PARENT, FrameLayout.LayoutParams.MATCH_PARENT)
+                }
+                keyLayout.addView(globeIcon)
             }
             else -> {
                 if (keyboardMode == KeyboardMode.DIALPAD) {
