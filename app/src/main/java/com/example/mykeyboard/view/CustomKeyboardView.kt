@@ -547,7 +547,10 @@ class CustomKeyboardView @JvmOverloads constructor(
 
         val bgDrawable = GradientDrawable().apply {
             val corner = when {
-                keyboardMode == KeyboardMode.DIALPAD -> dpToPx(12).toFloat()
+                keyboardMode == KeyboardMode.DIALPAD -> {
+                    if (key.primaryText == "ABC" || key.type == KeyType.ENTER) dpToPx(16).toFloat()
+                    else dpToPx(8).toFloat()
+                }
                 key.type == KeyType.CHARACTER || key.type == KeyType.COMMA || key.type == KeyType.PERIOD -> dpToPx(8).toFloat()
                 key.type == KeyType.SPACE -> dpToPx(16).toFloat()
                 else -> dpToPx(16).toFloat()

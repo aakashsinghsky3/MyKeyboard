@@ -212,58 +212,50 @@ object KeyLayoutHelper {
     fun getDialpadRows(): List<List<KeyModel>> {
         val rows = mutableListOf<List<KeyModel>>()
 
-        // Row 1: 1, 2, 3
+        // Row 1: + | 1 | 2 | 3 | %
         rows.add(
             listOf(
-                KeyModel(primaryText = "", type = KeyType.SPACER, weight = 1.0f),
-                KeyModel(primaryText = "1", altText = "", popupChars = listOf("¹"), weight = 2.0f),
-                KeyModel(primaryText = "2", altText = "", popupChars = listOf("²"), weight = 2.0f),
-                KeyModel(primaryText = "3", altText = "", popupChars = listOf("³"), weight = 2.0f),
-                KeyModel(primaryText = "", type = KeyType.SPACER, weight = 1.0f)
+                KeyModel(primaryText = "+", type = KeyType.MODE_CHANGE, weight = 1.0f),
+                KeyModel(primaryText = "1", popupChars = listOf("¹"), weight = 1.4f),
+                KeyModel(primaryText = "2", popupChars = listOf("²"), weight = 1.4f),
+                KeyModel(primaryText = "3", popupChars = listOf("³"), weight = 1.4f),
+                KeyModel(primaryText = "%", type = KeyType.MODE_CHANGE, weight = 1.0f)
             )
         )
 
-        // Row 2: 4, 5, 6
+        // Row 2: - | 4 | 5 | 6 | ␣
         rows.add(
             listOf(
-                KeyModel(primaryText = "", type = KeyType.SPACER, weight = 1.0f),
-                KeyModel(primaryText = "4", altText = "", popupChars = listOf("⁴"), weight = 2.0f),
-                KeyModel(primaryText = "5", altText = "", popupChars = listOf("⁵"), weight = 2.0f),
-                KeyModel(primaryText = "6", altText = "", popupChars = listOf("⁶"), weight = 2.0f),
-                KeyModel(primaryText = "", type = KeyType.SPACER, weight = 1.0f)
+                KeyModel(primaryText = "-", type = KeyType.MODE_CHANGE, weight = 1.0f),
+                KeyModel(primaryText = "4", popupChars = listOf("⁴"), weight = 1.4f),
+                KeyModel(primaryText = "5", popupChars = listOf("⁵"), weight = 1.4f),
+                KeyModel(primaryText = "6", popupChars = listOf("⁶"), weight = 1.4f),
+                KeyModel(primaryText = " ", type = KeyType.SPACE, weight = 1.0f)
             )
         )
 
-        // Row 3: 7, 8, 9
+        // Row 3: * | 7 | 8 | 9 | ⌫
         rows.add(
             listOf(
-                KeyModel(primaryText = "", type = KeyType.SPACER, weight = 1.0f),
-                KeyModel(primaryText = "7", altText = "", popupChars = listOf("⁷"), weight = 2.0f),
-                KeyModel(primaryText = "8", altText = "", popupChars = listOf("⁸"), weight = 2.0f),
-                KeyModel(primaryText = "9", altText = "", popupChars = listOf("⁹"), weight = 2.0f),
-                KeyModel(primaryText = "", type = KeyType.SPACER, weight = 1.0f)
+                KeyModel(primaryText = "*", type = KeyType.MODE_CHANGE, weight = 1.0f),
+                KeyModel(primaryText = "7", popupChars = listOf("⁷"), weight = 1.4f),
+                KeyModel(primaryText = "8", popupChars = listOf("⁸"), weight = 1.4f),
+                KeyModel(primaryText = "9", popupChars = listOf("⁹"), weight = 1.4f),
+                KeyModel(primaryText = "DEL", type = KeyType.BACKSPACE, weight = 1.0f)
             )
         )
 
-        // Row 4: *, 0 (+), #
+        // Row 4: / | ABC | , | !?# | 0 | = | . | ENTER
         rows.add(
             listOf(
-                KeyModel(primaryText = "", type = KeyType.SPACER, weight = 1.0f),
-                KeyModel(primaryText = "*", altText = "", weight = 2.0f),
-                KeyModel(primaryText = "0", altText = "+", popupChars = listOf("+"), weight = 2.0f),
-                KeyModel(primaryText = "#", altText = "", weight = 2.0f),
-                KeyModel(primaryText = "", type = KeyType.SPACER, weight = 1.0f)
-            )
-        )
-
-        // Row 5: [Spacer] [ABC] [SPACE] [DEL] [Spacer]
-        rows.add(
-            listOf(
-                KeyModel(primaryText = "", type = KeyType.SPACER, weight = 1.0f),
-                KeyModel(primaryText = "ABC", type = KeyType.MODE_CHANGE, weight = 2.0f),
-                KeyModel(primaryText = " ", type = KeyType.SPACE, weight = 2.0f),
-                KeyModel(primaryText = "DEL", type = KeyType.BACKSPACE, weight = 2.0f),
-                KeyModel(primaryText = "", type = KeyType.SPACER, weight = 1.0f)
+                KeyModel(primaryText = "/", type = KeyType.MODE_CHANGE, weight = 0.9f),
+                KeyModel(primaryText = "ABC", type = KeyType.MODE_CHANGE, weight = 1.1f),
+                KeyModel(primaryText = ",", type = KeyType.COMMA, weight = 0.7f),
+                KeyModel(primaryText = "!?#", type = KeyType.MODE_CHANGE, weight = 0.9f),
+                KeyModel(primaryText = "0", popupChars = listOf("+"), weight = 1.3f),
+                KeyModel(primaryText = "=", type = KeyType.CHARACTER, weight = 0.9f),
+                KeyModel(primaryText = ".", type = KeyType.PERIOD, weight = 0.7f),
+                KeyModel(primaryText = "ENTER", type = KeyType.ENTER, weight = 1.1f)
             )
         )
 
