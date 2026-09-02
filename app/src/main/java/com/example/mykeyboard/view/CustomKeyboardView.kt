@@ -173,7 +173,7 @@ class CustomKeyboardView @JvmOverloads constructor(
         androidx.core.view.ViewCompat.setOnApplyWindowInsetsListener(this) { _, windowInsets ->
             val navInsets = windowInsets.getInsets(androidx.core.view.WindowInsetsCompat.Type.navigationBars())
             val navH = if (navInsets.bottom > 0) navInsets.bottom else getNavigationBarHeight()
-            val bottomPad = maxOf(navH, dpToPx(6))
+            val bottomPad = maxOf(navH, dpToPx(48))
             rowsLayout.setPadding(dpToPx(4), dpToPx(3), dpToPx(4), bottomPad)
             windowInsets
         }
@@ -1149,7 +1149,8 @@ class CustomKeyboardView @JvmOverloads constructor(
 
     private fun getNavigationBarHeight(): Int {
         val resourceId = context.resources.getIdentifier("navigation_bar_height", "dimen", "android")
-        return if (resourceId > 0) context.resources.getDimensionPixelSize(resourceId) else 0
+        val navH = if (resourceId > 0) context.resources.getDimensionPixelSize(resourceId) else 0
+        return maxOf(navH, dpToPx(48))
     }
 
     private fun getCalculatedBottomPadding(): Int {
