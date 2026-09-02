@@ -165,7 +165,7 @@ class CustomKeyboardView @JvmOverloads constructor(
             orientation = VERTICAL
             gravity = Gravity.CENTER_HORIZONTAL
             layoutParams = FrameLayout.LayoutParams(FrameLayout.LayoutParams.MATCH_PARENT, FrameLayout.LayoutParams.WRAP_CONTENT)
-            setPadding(dpToPx(4), dpToPx(3), dpToPx(4), initialBottomPad)
+            setPadding(dpToPx(8), dpToPx(3), dpToPx(8), initialBottomPad)
         }
         keyboardContainer.addView(rowsLayout)
         addView(keyboardContainer)
@@ -174,7 +174,7 @@ class CustomKeyboardView @JvmOverloads constructor(
             val navInsets = windowInsets.getInsets(androidx.core.view.WindowInsetsCompat.Type.navigationBars())
             val navH = if (navInsets.bottom > 0) navInsets.bottom else getNavigationBarHeight()
             val bottomPad = maxOf(navH, dpToPx(48))
-            rowsLayout.setPadding(dpToPx(4), dpToPx(3), dpToPx(4), bottomPad)
+            rowsLayout.setPadding(dpToPx(8), dpToPx(3), dpToPx(8), bottomPad)
             windowInsets
         }
 
@@ -502,7 +502,7 @@ class CustomKeyboardView @JvmOverloads constructor(
         val defaultBottomPad = maxOf(getNavigationBarHeight(), dpToPx(48))
         val targetContentHeight = getStandardContentHeight()
 
-        rowsLayout.setPadding(dpToPx(4), dpToPx(3), dpToPx(4), defaultBottomPad)
+        rowsLayout.setPadding(dpToPx(8), dpToPx(3), dpToPx(8), defaultBottomPad)
 
         if (rows.isNotEmpty()) {
             val totalMargins = (rows.size - 1) * rowMarginB

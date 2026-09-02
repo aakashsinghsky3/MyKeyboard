@@ -73,7 +73,7 @@ object KeyLayoutHelper {
             r2List.add(
                 KeyModel(
                     primaryText = char,
-                    altText = alt,
+                    altText = "",
                     popupChars = getPopupCharsForKey(char, alt)
                 )
             )
@@ -91,7 +91,7 @@ object KeyLayoutHelper {
             r3.add(
                 KeyModel(
                     primaryText = char,
-                    altText = alt,
+                    altText = "",
                     popupChars = getPopupCharsForKey(char, alt)
                 )
             )
