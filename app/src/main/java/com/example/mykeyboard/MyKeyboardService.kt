@@ -331,6 +331,11 @@ class MyKeyboardService : InputMethodService(),
         updatePredictions()
     }
 
+    override fun onDeleteSuggestedWord(word: String) {
+        predictionEngine.deleteWordFromSuggestions(word)
+        updatePredictions()
+    }
+
     override fun onReplaceText(oldText: String, newText: String) {
         val ic = currentInputConnection ?: return
         recordCurrentSnapshot()

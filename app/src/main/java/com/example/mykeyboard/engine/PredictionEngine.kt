@@ -246,11 +246,21 @@ class PredictionEngine(context: Context) {
     )
 
     fun learnWord(word: String) {
-        userDb.learnWord(word)
+        if (!userDb.getBlacklistedWords().contains(word.trim().lowercase())) {
+            userDb.learnWord(word)
+        }
     }
 
     fun addCustomWord(word: String) {
         userDb.addCustomWord(word)
+    }
+
+    fun deleteWordFromSuggestions(word: String) {
+        val clean = word.trim().lowercase()
+        if (clean.isEmpty()) return
+        userDb.deleteWord(clean)
+        userDb.blacklistWord(clean)
+        assetDictionary.remove(clean)
     }
 
     fun getSuggestions(
@@ -433,6 +443,8 @@ class PredictionEngine(context: Context) {
     }
 
     private fun isValidForLanguage(text: String, language: String): Boolean {
+        val clean = text.lowercase()
+        if (userDb.getBlacklistedWords().contains(clean)) return false
         val hasDevanagari = isDevanagari(text)
         return if (language == "hi") {
             hasDevanagari

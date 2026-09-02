@@ -60,6 +60,7 @@ class CustomKeyboardView @JvmOverloads constructor(
         fun onUndo()
         fun onRedo()
         fun onAddWordToDictionary(word: String)
+        fun onDeleteSuggestedWord(word: String)
         fun onReplaceText(oldText: String, newText: String)
     }
 
@@ -392,7 +393,7 @@ class CustomKeyboardView @JvmOverloads constructor(
                 }
             }
             setOnLongClickListener {
-                showAddWordDialog(text.toString())
+                showRemoveSuggestionDialog(text.toString())
                 true
             }
         }
@@ -413,7 +414,7 @@ class CustomKeyboardView @JvmOverloads constructor(
                 }
             }
             setOnLongClickListener {
-                showAddWordDialog(text.toString())
+                showRemoveSuggestionDialog(text.toString())
                 true
             }
         }
@@ -434,7 +435,7 @@ class CustomKeyboardView @JvmOverloads constructor(
                 }
             }
             setOnLongClickListener {
-                showAddWordDialog(text.toString())
+                showRemoveSuggestionDialog(text.toString())
                 true
             }
         }
@@ -482,11 +483,12 @@ class CustomKeyboardView @JvmOverloads constructor(
         }
     }
 
-    private fun showAddWordDialog(word: String) {
-        if (word.isNotEmpty() && word.length >= 2) {
-            actionListener?.onAddWordToDictionary(word)
+    private fun showRemoveSuggestionDialog(word: String) {
+        if (word.isNotEmpty()) {
+            predictionEngine.deleteWordFromSuggestions(word)
+            actionListener?.onDeleteSuggestedWord(word)
             performHapticFeedback()
-            Toast.makeText(context, "Added \"$word\" to personal dictionary ✓", Toast.LENGTH_SHORT).show()
+            Toast.makeText(context, "Removed \"$word\" from suggestions 🗑️", Toast.LENGTH_SHORT).show()
         }
     }
 

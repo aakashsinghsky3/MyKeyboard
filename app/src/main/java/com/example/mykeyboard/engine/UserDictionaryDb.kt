@@ -18,14 +18,23 @@ class UserDictionaryDb(context: Context) : SQLiteOpenHelper(context, DATABASE_NA
             )
             """.trimIndent()
         )
+        db.execSQL(
+            """
+            CREATE TABLE IF NOT EXISTS $TABLE_BLACKLIST (
+                $COL_WORD TEXT PRIMARY KEY NOT NULL
+            )
+            """.trimIndent()
+        )
     }
 
     override fun onOpen(db: SQLiteDatabase) {
         super.onOpen(db)
+        db.execSQL("CREATE TABLE IF NOT EXISTS $TABLE_BLACKLIST ($COL_WORD TEXT PRIMARY KEY NOT NULL)")
     }
 
     override fun onUpgrade(db: SQLiteDatabase, oldVersion: Int, newVersion: Int) {
         db.execSQL("DROP TABLE IF EXISTS $TABLE_WORDS")
+        db.execSQL("DROP TABLE IF EXISTS $TABLE_BLACKLIST")
         onCreate(db)
     }
 
@@ -91,10 +100,35 @@ class UserDictionaryDb(context: Context) : SQLiteOpenHelper(context, DATABASE_NA
         } catch (_: Exception) {}
     }
 
+    fun blacklistWord(word: String) {
+        try {
+            val db = writableDatabase
+            val values = ContentValues().apply {
+                put(COL_WORD, word.trim().lowercase())
+            }
+            db.insertWithOnConflict(TABLE_BLACKLIST, null, values, SQLiteDatabase.CONFLICT_REPLACE)
+        } catch (_: Exception) {}
+    }
+
+    fun getBlacklistedWords(): Set<String> {
+        val result = mutableSetOf<String>()
+        try {
+            val db = readableDatabase
+            val cursor = db.query(TABLE_BLACKLIST, arrayOf(COL_WORD), null, null, null, null, null)
+            cursor.use {
+                while (it.moveToNext()) {
+                    result.add(it.getString(0))
+                }
+            }
+        } catch (_: Exception) {}
+        return result
+    }
+
     companion object {
         private const val DATABASE_NAME = "my_keyboard_user_dict.db"
         private const val DATABASE_VERSION = 1
         private const val TABLE_WORDS = "user_words"
+        private const val TABLE_BLACKLIST = "blacklisted_words"
         private const val COL_ID = "id"
         private const val COL_WORD = "word"
         private const val COL_FREQ = "frequency"
