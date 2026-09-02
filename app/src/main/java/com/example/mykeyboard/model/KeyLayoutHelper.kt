@@ -80,11 +80,11 @@ object KeyLayoutHelper {
         val r1Chars = listOf("q", "w", "e", "r", "t", "y", "u", "i", "o", "p")
         val r1Alt = listOf("1", "2", "3", "4", "5", "6", "7", "8", "9", "0")
         val r1 = r1Chars.mapIndexed { idx, char ->
-            val alt = r1Alt[idx]
+            val alt = if (isNumberRowEnabled) "" else r1Alt[idx]
             KeyModel(
                 primaryText = char,
                 altText = alt,
-                popupChars = getPopupCharsForKey(char, alt)
+                popupChars = getPopupCharsForKey(char, r1Alt[idx])
             )
         }
         rows.add(r1)
