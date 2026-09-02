@@ -675,24 +675,30 @@ class CustomKeyboardView @JvmOverloads constructor(
                     keyLayout.addView(container)
                 } else {
                     val hasAlt = key.altText.isNotEmpty() && keyboardMode == KeyboardMode.ALPHA
-                    val mainTv = TextView(context).apply {
-                        val charText = if (shiftState != ShiftState.UNSHIFTED) key.shiftText else key.primaryText
-                        text = charText
-                        if (charText == "&") {
-                            textSize = 19f
-                            typeface = Typeface.create("sans-serif-medium", Typeface.BOLD)
-                        } else {
+                    val charText = if (shiftState != ShiftState.UNSHIFTED) key.shiftText else key.primaryText
+                    if (charText == "&") {
+                        val ampIv = ImageView(context).apply {
+                            setImageResource(R.drawable.ic_ampersand)
+                            setColorFilter(currentTheme.textColorPrimary)
+                            val pad = dpToPx(10)
+                            setPadding(pad, pad, pad, pad)
+                            layoutParams = FrameLayout.LayoutParams(FrameLayout.LayoutParams.MATCH_PARENT, FrameLayout.LayoutParams.MATCH_PARENT)
+                        }
+                        keyLayout.addView(ampIv)
+                    } else {
+                        val mainTv = TextView(context).apply {
+                            text = charText
                             textSize = if (hasAlt) 17.5f else 20f
                             typeface = Typeface.DEFAULT_BOLD
+                            gravity = if (hasAlt) (Gravity.CENTER_HORIZONTAL or Gravity.BOTTOM) else Gravity.CENTER
+                            if (hasAlt) {
+                                setPadding(0, 0, 0, dpToPx(4))
+                            }
+                            setTextColor(currentTheme.textColorPrimary)
+                            layoutParams = FrameLayout.LayoutParams(FrameLayout.LayoutParams.MATCH_PARENT, FrameLayout.LayoutParams.MATCH_PARENT)
                         }
-                        gravity = if (hasAlt) (Gravity.CENTER_HORIZONTAL or Gravity.BOTTOM) else Gravity.CENTER
-                        if (hasAlt) {
-                            setPadding(0, 0, 0, dpToPx(4))
-                        }
-                        setTextColor(currentTheme.textColorPrimary)
-                        layoutParams = FrameLayout.LayoutParams(FrameLayout.LayoutParams.MATCH_PARENT, FrameLayout.LayoutParams.MATCH_PARENT)
+                        keyLayout.addView(mainTv)
                     }
-                    keyLayout.addView(mainTv)
 
                     if (hasAlt) {
                         val altTv = TextView(context).apply {
