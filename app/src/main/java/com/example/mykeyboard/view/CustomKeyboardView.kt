@@ -263,26 +263,27 @@ class CustomKeyboardView @JvmOverloads constructor(
         val result = predictionEngine.getSuggestions(prefix, previousWords, preferences.autoCorrectMode)
         currentSuggestionResult = result
 
-        val hasLeft = !result.left.isNullOrEmpty()
-        val hasCenter = !result.center.isNullOrEmpty()
-        val hasRight = !result.right.isNullOrEmpty()
-        val hasAnyCandidate = hasLeft || hasCenter || hasRight
-
         if (prefix.isNotEmpty()) {
             toolbarActionsLayout.visibility = View.GONE
             candidatesLayout.visibility = View.VISIBLE
+
+            candidateLeftTv.visibility = View.VISIBLE
+            candidateCenterTv.visibility = View.VISIBLE
+            candidateRightTv.visibility = View.VISIBLE
         } else {
             toolbarActionsLayout.visibility = View.VISIBLE
-            candidatesLayout.visibility = if (hasAnyCandidate) View.VISIBLE else View.GONE
+            candidatesLayout.visibility = View.GONE
+
+            candidateLeftTv.visibility = View.GONE
+            candidateCenterTv.visibility = View.GONE
+            candidateRightTv.visibility = View.GONE
         }
 
         // Left Candidate
         candidateLeftTv.text = result.left ?: ""
-        candidateLeftTv.visibility = if (hasLeft) View.VISIBLE else View.GONE
 
         // Center Candidate (Primary / Autocorrect)
         candidateCenterTv.text = result.center ?: ""
-        candidateCenterTv.visibility = if (hasCenter) View.VISIBLE else View.GONE
         candidateCenterTv.setTextSize(15.5f)
         candidateCenterTv.setTypeface(Typeface.DEFAULT_BOLD, if (result.isAutoCorrect) Typeface.BOLD_ITALIC else Typeface.BOLD)
         candidateCenterTv.setTextColor(currentTheme.textColorPrimary)
@@ -294,7 +295,6 @@ class CustomKeyboardView @JvmOverloads constructor(
 
         // Right Candidate
         candidateRightTv.text = result.right ?: ""
-        candidateRightTv.visibility = if (hasRight) View.VISIBLE else View.GONE
     }
 
     fun showProfessionalSuggestions(rawSentence: String, options: List<String>) {

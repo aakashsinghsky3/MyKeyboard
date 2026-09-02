@@ -343,25 +343,18 @@ class PredictionEngine(context: Context) {
             }
         }
 
-        var center = autoCorrectMatch ?: allMatches.firstOrNull() ?: prefix
-        var left: String? = null
-        var right: String? = null
+        val center = autoCorrectMatch ?: allMatches.firstOrNull() ?: prefix
+        val otherMatches = allMatches.filter { it.lowercase() != center.lowercase() }.toMutableList()
 
-        if (autoCorrectMatch != null) {
-            // If autocorrect matched: Center = Autocorrect, Left = Exact raw input, Right = Alternative
-            left = prefix
-            right = allMatches.firstOrNull { it != autoCorrectMatch.lowercase() }
-        } else {
-            // Normal prefix matches
-            val otherMatches = allMatches.filter { it != center.lowercase() }
-            left = if (prefix != center) prefix else otherMatches.getOrNull(0)
-            right = otherMatches.getOrNull(if (prefix != center) 0 else 1)
+        var left: String? = if (autoCorrectMatch != null) prefix else if (prefix.lowercase() != center.lowercase()) prefix else otherMatches.removeFirstOrNull()
+        var right: String? = otherMatches.removeFirstOrNull()
 
-            // If we have context, try adding a context candidate to right
-            if (right == null && previousWords.isNotEmpty()) {
-                val context = previousWords.last().lowercase()
-                right = N_GRAM_MAP[context]?.firstOrNull()
-            }
+        if (left == null) {
+            left = otherMatches.removeFirstOrNull() ?: prefix
+        }
+
+        if (right == null) {
+            right = otherMatches.removeFirstOrNull() ?: COMMON_DICTIONARY.firstOrNull { it.lowercase() != center.lowercase() && it.lowercase() != (left?.lowercase() ?: "") }
         }
 
         return SuggestionResult(
