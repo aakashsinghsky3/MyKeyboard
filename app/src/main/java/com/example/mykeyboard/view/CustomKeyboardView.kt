@@ -511,9 +511,9 @@ class CustomKeyboardView @JvmOverloads constructor(
             val hasNumberRow = preferences.isNumberRowEnabled && (keyboardMode == KeyboardMode.ALPHA || keyboardMode == KeyboardMode.SYMBOLS_1 || keyboardMode == KeyboardMode.SYMBOLS_2)
             val totalMargins = (rows.size - 1) * rowMarginB
 
-            val numberRowH = if (hasNumberRow) dpToPx(36) else 0
+            val numberRowH = if (hasNumberRow) dpToPx(38) else 0
             val remainingH = targetContentHeight - totalMargins - numberRowH
-            val letterRowH = maxOf(dpToPx(38), if (hasNumberRow && rows.size > 1) remainingH / (rows.size - 1) else (targetContentHeight - totalMargins) / rows.size)
+            val letterRowH = maxOf(dpToPx(42), if (hasNumberRow && rows.size > 1) remainingH / (rows.size - 1) else (targetContentHeight - totalMargins) / rows.size)
 
             rows.forEachIndexed { rowIndex, keyRow ->
                 val isNumRow = hasNumberRow && rowIndex == 0
@@ -638,7 +638,7 @@ class CustomKeyboardView @JvmOverloads constructor(
             KeyType.EMOJI -> {
                 val emojiTv = TextView(context).apply {
                     text = "😀"
-                    textSize = 18f
+                    textSize = 20f
                     gravity = Gravity.CENTER
                     layoutParams = FrameLayout.LayoutParams(FrameLayout.LayoutParams.MATCH_PARENT, FrameLayout.LayoutParams.MATCH_PARENT)
                 }
@@ -647,7 +647,7 @@ class CustomKeyboardView @JvmOverloads constructor(
             KeyType.MODE_CHANGE -> {
                 val modeTv = TextView(context).apply {
                     text = key.primaryText
-                    textSize = 13f
+                    textSize = 15f
                     gravity = Gravity.CENTER
                     setTextColor(currentTheme.textColorPrimary)
                     typeface = Typeface.DEFAULT_BOLD
@@ -664,7 +664,7 @@ class CustomKeyboardView @JvmOverloads constructor(
                     }
                     val mainTv = TextView(context).apply {
                         text = key.primaryText
-                        textSize = 21f
+                        textSize = 24f
                         gravity = Gravity.CENTER
                         setTextColor(currentTheme.textColorPrimary)
                         typeface = Typeface.DEFAULT_BOLD
@@ -674,7 +674,7 @@ class CustomKeyboardView @JvmOverloads constructor(
                     if (key.altText.isNotEmpty()) {
                         val subTv = TextView(context).apply {
                             text = key.altText
-                            textSize = 10f
+                            textSize = 11f
                             gravity = Gravity.CENTER
                             setTextColor(currentTheme.textColorSecondary)
                             typeface = Typeface.DEFAULT_BOLD
@@ -687,11 +687,11 @@ class CustomKeyboardView @JvmOverloads constructor(
                     val mainTv = TextView(context).apply {
                         val charText = if (shiftState != ShiftState.UNSHIFTED) key.shiftText else key.primaryText
                         text = charText
-                        textSize = if (hasAlt) 17.5f else 20f
+                        textSize = if (hasAlt) 19.5f else 22.5f
                         typeface = Typeface.DEFAULT_BOLD
                         gravity = if (hasAlt) (Gravity.CENTER_HORIZONTAL or Gravity.BOTTOM) else Gravity.CENTER
                         if (hasAlt) {
-                            setPadding(0, 0, 0, dpToPx(4))
+                            setPadding(0, 0, 0, dpToPx(3))
                         }
                         setTextColor(currentTheme.textColorPrimary)
                         layoutParams = FrameLayout.LayoutParams(FrameLayout.LayoutParams.MATCH_PARENT, FrameLayout.LayoutParams.MATCH_PARENT)
@@ -1180,7 +1180,7 @@ class CustomKeyboardView @JvmOverloads constructor(
         val isTablet = context.resources.configuration.smallestScreenWidthDp >= 600
         val isLandscape = context.resources.configuration.orientation == android.content.res.Configuration.ORIENTATION_LANDSCAPE
         val numRows = if (preferences.isNumberRowEnabled) 5 else 4
-        val baseRowHeight = if (isTablet) dpToPx(50) else if (isLandscape) dpToPx(40) else if (numRows == 5) dpToPx(40) else dpToPx(50)
+        val baseRowHeight = if (isTablet) dpToPx(56) else if (isLandscape) dpToPx(42) else if (numRows == 5) dpToPx(44) else dpToPx(52)
         val scaledRowHeight = (baseRowHeight * preferences.heightScale).toInt()
         val rowMarginB = (3.0f * context.resources.displayMetrics.density).toInt()
         return (numRows * scaledRowHeight) + ((numRows - 1) * rowMarginB)
