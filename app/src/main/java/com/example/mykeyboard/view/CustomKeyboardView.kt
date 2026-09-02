@@ -785,7 +785,7 @@ class CustomKeyboardView @JvmOverloads constructor(
                             showKeyPopup(v, text)
                         }
                         handler.postDelayed(longPressRunnable, 350)
-                    } else if (key.type == KeyType.SPACE || key.type == KeyType.LANGUAGE_SWITCH) {
+                    } else if (key.type == KeyType.SPACE) {
                         handler.postDelayed({
                             if (!isCursorSliding && !isLongPressHandled) {
                                 isLongPressHandled = true
