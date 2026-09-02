@@ -36,7 +36,7 @@ class PredictionEngine(context: Context) {
                                 for (len in 1..maxLen) {
                                     val prefix = word.substring(0, len)
                                     val list = tempPrefixMap.getOrPut(prefix) { mutableListOf() }
-                                    if (list.size < 300) {
+                                    if (list.size < 500) {
                                         list.add(Pair(word, freq))
                                     }
                                 }
