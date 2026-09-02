@@ -1236,13 +1236,12 @@ class CustomKeyboardView @JvmOverloads constructor(
     private fun getNavigationBarHeight(): Int {
         val resourceId = context.resources.getIdentifier("navigation_bar_height", "dimen", "android")
         val navH = if (resourceId > 0) context.resources.getDimensionPixelSize(resourceId) else 0
-        return maxOf(navH, dpToPx(48))
+        return minOf(navH, dpToPx(20))
     }
 
     private fun getCalculatedBottomPadding(): Int {
-        val isTablet = context.resources.configuration.smallestScreenWidthDp >= 600
         val navH = getNavigationBarHeight()
-        return maxOf(navH, if (isTablet) dpToPx(56) else dpToPx(48))
+        return maxOf(navH, dpToPx(6))
     }
 
     private fun getStandardContentHeight(): Int {
