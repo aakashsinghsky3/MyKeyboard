@@ -159,16 +159,16 @@ object KeyLayoutHelper {
             // VOWELS (अ से अः) & MATRAS MODE ON SHIFT
             // Row 1: अ आ इ ई उ ऊ ऋ ए ऐ ओ
             val r1Vowels = listOf("अ", "आ", "इ", "ई", "उ", "ऊ", "ऋ", "ए", "ऐ", "ओ")
-            rows.add(r1Vowels.map { KeyModel(primaryText = it, popupChars = listOf(it, "ऑ", "ऍ")) })
+            rows.add(r1Vowels.map { KeyModel(primaryText = it, popupChars = listOf(it, "ऑ", "ऍ", "ॐ")) })
 
             // Row 2: औ अं अः ा ि ी ु ू े ै
             val r2Matras = listOf("औ", "अं", "अः", "ा", "ि", "ी", "ु", "ू", "े", "ै")
             rows.add(r2Matras.map { KeyModel(primaryText = it) })
 
-            // Row 3: [SHIFT] ो ौ ं ः ृ ॉ ॅ ऑ ऍ [DEL]
+            // Row 3: [SHIFT] ो ौ ं ः ृ ॉ ॅ ऑ ऍ ॐ [DEL]
             val r3 = mutableListOf<KeyModel>()
             r3.add(KeyModel(primaryText = "अ/ा", type = KeyType.SHIFT, weight = 1.5f))
-            val r3Extra = listOf("ो", "ौ", "ं", "ः", "ृ", "ॉ", "ॅ", "ऑ", "ऍ")
+            val r3Extra = listOf("ो", "ौ", "ं", "ः", "ृ", "ॉ", "ॅ", "ऑ", "ऍ", "ॐ")
             r3Extra.forEach { r3.add(KeyModel(primaryText = it)) }
             r3.add(KeyModel(primaryText = "DEL", type = KeyType.BACKSPACE, weight = 1.5f))
             rows.add(r3)
@@ -178,10 +178,14 @@ object KeyLayoutHelper {
             val r1Chars = listOf("क", "ख", "ग", "घ", "ङ", "च", "छ", "ज", "झ", "ञ")
             val r1Alt = listOf("अ", "आ", "इ", "ई", "उ", "ऊ", "ऋ", "ए", "ऐ", "ओ")
             val r1 = r1Chars.mapIndexed { idx, char ->
+                val popups = when(char) {
+                    "ज" -> listOf("ज", "ज़", "झ")
+                    else -> listOf(char, "${char}ा", "${char}ि", "${char}ी", "${char}ु", "${char}ू", "${char}े", "${char}ै", "${char}ो", "${char}ौ", "${char}ं", "ा", "ि", "ी", "ु", "ू", "े", "ै", "ो", "ौ", "ं")
+                }
                 KeyModel(
                     primaryText = char,
                     altText = r1Alt[idx],
-                    popupChars = listOf(char, "${char}ा", "${char}ि", "${char}ी", "${char}ु", "${char}ू", "${char}े", "${char}ै", "${char}ो", "${char}ौ", "${char}ं", "ा", "ि", "ी", "ु", "ू", "े", "ै", "ो", "ौ", "ं")
+                    popupChars = popups
                 )
             }
             rows.add(r1)
@@ -190,40 +194,54 @@ object KeyLayoutHelper {
             val r2Chars = listOf("ट", "ठ", "ड", "ढ", "ण", "त", "थ", "द", "ध", "न")
             val r2Alt = listOf("औ", "अं", "अः", "ा", "ि", "ी", "ु", "ू", "े", "ै")
             val r2 = r2Chars.mapIndexed { idx, char ->
+                val popups = when(char) {
+                    "ड" -> listOf("ड", "ड़")
+                    "ढ" -> listOf("ढ", "ढ़")
+                    else -> listOf(char, "${char}ा", "${char}ि", "${char}ी", "${char}ु", "${char}ू", "${char}े", "${char}ै", "${char}ो", "${char}ौ", "${char}ं", "ा", "ि", "ी", "ु", "ू", "े", "ै", "ो", "ौ", "ं")
+                }
                 KeyModel(
                     primaryText = char,
                     altText = r2Alt[idx],
-                    popupChars = listOf(char, "${char}ा", "${char}ि", "${char}ी", "${char}ु", "${char}ू", "${char}े", "${char}ै", "${char}ो", "${char}ौ", "${char}ं", "ा", "ि", "ी", "ु", "ू", "े", "ै", "ो", "ौ", "ं")
+                    popupChars = popups
                 )
             }
             rows.add(r2)
 
-            // Row 3: [SHIFT] प फ ब भ म य र ल व [DEL]
+            // Row 3: [SHIFT] प फ ब भ म य र ल व श [DEL]
             val r3 = mutableListOf<KeyModel>()
-            r3.add(KeyModel(primaryText = "अ/ा", type = KeyType.SHIFT, weight = 1.5f))
-            val r3Chars = listOf("प", "फ", "ब", "भ", "म", "य", "र", "ल", "व")
-            val r3Alt = listOf("ो", "ौ", "ं", "ः", "ृ", "ॉ", "ॅ", "ऑ", "ऍ")
+            r3.add(KeyModel(primaryText = "अ/ा", type = KeyType.SHIFT, weight = 1.25f))
+            val r3Chars = listOf("प", "फ", "ब", "भ", "म", "य", "र", "ल", "व", "श")
+            val r3Alt = listOf("ो", "ौ", "ं", "ः", "ृ", "ॉ", "ॅ", "ऑ", "ऍ", "ष")
             r3Chars.forEachIndexed { idx, char ->
+                val popups = when(char) {
+                    "फ" -> listOf("फ", "फ़")
+                    "श" -> listOf("श", "ष", "स", "श्र")
+                    else -> listOf(char, "${char}ा", "${char}ि", "${char}ी", "${char}ु", "${char}ू", "${char}े", "${char}ै", "${char}ो", "${char}ौ", "${char}ं", "ा", "ि", "ी", "ु", "ू", "े", "ै", "ो", "ौ", "ं")
+                }
                 r3.add(
                     KeyModel(
                         primaryText = char,
                         altText = r3Alt[idx],
-                        popupChars = listOf(char, "${char}ा", "${char}ि", "${char}ी", "${char}ु", "${char}ू", "${char}े", "${char}ै", "${char}ो", "${char}ौ", "${char}ं", "ा", "ि", "ी", "ु", "ू", "े", "ै", "ो", "ौ", "ं")
+                        popupChars = popups
                     )
                 )
             }
-            r3.add(KeyModel(primaryText = "DEL", type = KeyType.BACKSPACE, weight = 1.5f))
+            r3.add(KeyModel(primaryText = "DEL", type = KeyType.BACKSPACE, weight = 1.25f))
             rows.add(r3)
         }
 
-        // Row 4: [?123] [🌐] [ श ] [ space (हिंदी) ] [ ह ] [Enter]
+        // Row 4: [?123] [🌐] [ष] [स] [ह] [ space (हिंदी) ] [क्ष] [त्र] [ज्ञ] [ENTER]
         val r4 = listOf(
             KeyModel(primaryText = "?123", type = KeyType.MODE_CHANGE, weight = 1.25f),
             KeyModel(primaryText = "🌐", type = KeyType.LANGUAGE_SWITCH, weight = 1.0f),
-            KeyModel(primaryText = "श", type = KeyType.CHARACTER, weight = 0.9f),
-            KeyModel(primaryText = "हिंदी", type = KeyType.SPACE, weight = 4.0f),
-            KeyModel(primaryText = "ह", type = KeyType.CHARACTER, weight = 0.9f),
-            KeyModel(primaryText = "ENTER", type = KeyType.ENTER, weight = 1.5f)
+            KeyModel(primaryText = "ष", type = KeyType.CHARACTER, weight = 0.8f),
+            KeyModel(primaryText = "स", type = KeyType.CHARACTER, weight = 0.8f),
+            KeyModel(primaryText = "ह", type = KeyType.CHARACTER, weight = 0.8f),
+            KeyModel(primaryText = "हिंदी", type = KeyType.SPACE, weight = 3.5f),
+            KeyModel(primaryText = "क्ष", type = KeyType.CHARACTER, weight = 0.8f),
+            KeyModel(primaryText = "त्र", type = KeyType.CHARACTER, weight = 0.8f),
+            KeyModel(primaryText = "ज्ञ", type = KeyType.CHARACTER, weight = 0.8f),
+            KeyModel(primaryText = "ENTER", type = KeyType.ENTER, weight = 1.25f)
         )
         rows.add(r4)
 
