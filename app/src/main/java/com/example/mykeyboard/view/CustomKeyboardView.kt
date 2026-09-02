@@ -675,30 +675,19 @@ class CustomKeyboardView @JvmOverloads constructor(
                     keyLayout.addView(container)
                 } else {
                     val hasAlt = key.altText.isNotEmpty() && keyboardMode == KeyboardMode.ALPHA
-                    val charText = if (shiftState != ShiftState.UNSHIFTED) key.shiftText else key.primaryText
-                    if (charText == "&") {
-                        val ampIv = ImageView(context).apply {
-                            setImageResource(R.drawable.ic_ampersand)
-                            setColorFilter(currentTheme.textColorPrimary)
-                            val pad = dpToPx(10)
-                            setPadding(pad, pad, pad, pad)
-                            layoutParams = FrameLayout.LayoutParams(FrameLayout.LayoutParams.MATCH_PARENT, FrameLayout.LayoutParams.MATCH_PARENT)
+                    val mainTv = TextView(context).apply {
+                        val charText = if (shiftState != ShiftState.UNSHIFTED) key.shiftText else key.primaryText
+                        text = charText
+                        textSize = if (hasAlt) 17.5f else 20f
+                        typeface = Typeface.DEFAULT_BOLD
+                        gravity = if (hasAlt) (Gravity.CENTER_HORIZONTAL or Gravity.BOTTOM) else Gravity.CENTER
+                        if (hasAlt) {
+                            setPadding(0, 0, 0, dpToPx(4))
                         }
-                        keyLayout.addView(ampIv)
-                    } else {
-                        val mainTv = TextView(context).apply {
-                            text = charText
-                            textSize = if (hasAlt) 17.5f else 20f
-                            typeface = Typeface.DEFAULT_BOLD
-                            gravity = if (hasAlt) (Gravity.CENTER_HORIZONTAL or Gravity.BOTTOM) else Gravity.CENTER
-                            if (hasAlt) {
-                                setPadding(0, 0, 0, dpToPx(4))
-                            }
-                            setTextColor(currentTheme.textColorPrimary)
-                            layoutParams = FrameLayout.LayoutParams(FrameLayout.LayoutParams.MATCH_PARENT, FrameLayout.LayoutParams.MATCH_PARENT)
-                        }
-                        keyLayout.addView(mainTv)
+                        setTextColor(currentTheme.textColorPrimary)
+                        layoutParams = FrameLayout.LayoutParams(FrameLayout.LayoutParams.MATCH_PARENT, FrameLayout.LayoutParams.MATCH_PARENT)
                     }
+                    keyLayout.addView(mainTv)
 
                     if (hasAlt) {
                         val altTv = TextView(context).apply {
@@ -892,62 +881,40 @@ class CustomKeyboardView @JvmOverloads constructor(
     }
 
     private fun initKeyPopup() {
-        val frameLayout = FrameLayout(context)
         val popupView = TextView(context).apply {
             gravity = Gravity.CENTER
             textSize = 28f
             typeface = Typeface.DEFAULT_BOLD
             val pad = dpToPx(8)
             setPadding(pad, pad, pad, pad)
-            layoutParams = FrameLayout.LayoutParams(FrameLayout.LayoutParams.MATCH_PARENT, FrameLayout.LayoutParams.MATCH_PARENT)
         }
-        val popupImageView = ImageView(context).apply {
-            setImageResource(R.drawable.ic_ampersand)
-            val pad = dpToPx(12)
-            setPadding(pad, pad, pad, pad)
-            layoutParams = FrameLayout.LayoutParams(FrameLayout.LayoutParams.MATCH_PARENT, FrameLayout.LayoutParams.MATCH_PARENT)
-            visibility = View.GONE
-        }
-        frameLayout.addView(popupView)
-        frameLayout.addView(popupImageView)
         popupTextView = popupView
-        popupWindow = PopupWindow(frameLayout, dpToPx(56), dpToPx(64)).apply {
+        popupWindow = PopupWindow(popupView, dpToPx(56), dpToPx(64)).apply {
             isTouchable = false
             animationStyle = android.R.style.Animation_Toast
         }
     }
 
     private fun showKeyPopup(anchor: View, text: String) {
-        val parent = popupTextView?.parent as? FrameLayout ?: return
-        val tv = popupTextView ?: return
-        val iv = parent.getChildAt(1) as? ImageView
-
-        val bg = GradientDrawable().apply {
-            cornerRadius = dpToPx(12).toFloat()
-            setColor(currentTheme.popupBgColor)
-            setStroke(dpToPx(1), currentTheme.rippleColor)
-        }
-        parent.background = bg
-
-        if (text == "&") {
-            tv.visibility = View.GONE
-            iv?.visibility = View.VISIBLE
-            iv?.setColorFilter(currentTheme.popupTextColor)
-        } else {
-            iv?.visibility = View.GONE
-            tv.visibility = View.VISIBLE
+        popupTextView?.let { tv ->
             tv.text = text
             tv.setTextColor(currentTheme.popupTextColor)
+            val bg = GradientDrawable().apply {
+                cornerRadius = dpToPx(12).toFloat()
+                setColor(currentTheme.popupBgColor)
+                setStroke(dpToPx(1), currentTheme.rippleColor)
+            }
+            tv.background = bg
+
+            val location = IntArray(2)
+            anchor.getLocationOnScreen(location)
+            val x = location[0] + (anchor.width - dpToPx(56)) / 2
+            val y = location[1] - dpToPx(68)
+
+            try {
+                popupWindow?.showAtLocation(anchor, Gravity.NO_GRAVITY, x, y)
+            } catch (_: Exception) {}
         }
-
-        val location = IntArray(2)
-        anchor.getLocationOnScreen(location)
-        val x = location[0] + (anchor.width - dpToPx(56)) / 2
-        val y = location[1] - dpToPx(68)
-
-        try {
-            popupWindow?.showAtLocation(anchor, Gravity.NO_GRAVITY, x, y)
-        } catch (_: Exception) {}
     }
 
     private fun dismissPopup() {
@@ -982,36 +949,20 @@ class CustomKeyboardView @JvmOverloads constructor(
         accentsContainer?.removeAllViews()
 
         chars.forEach { char ->
-            val v: View = if (char == "&") {
-                ImageView(context).apply {
-                    setImageResource(R.drawable.ic_ampersand)
-                    setColorFilter(currentTheme.popupTextColor)
-                    val size = dpToPx(42)
-                    val pad = dpToPx(8)
-                    setPadding(pad, pad, pad, pad)
-                    layoutParams = LayoutParams(size, size)
-                    val bg = GradientDrawable().apply {
-                        cornerRadius = dpToPx(8).toFloat()
-                        setColor(Color.TRANSPARENT)
-                    }
-                    background = bg
+            val tv = TextView(context).apply {
+                text = char
+                textSize = 20f
+                gravity = Gravity.CENTER
+                val size = dpToPx(42)
+                layoutParams = LayoutParams(size, size)
+                setTextColor(currentTheme.popupTextColor)
+                val bg = GradientDrawable().apply {
+                    cornerRadius = dpToPx(8).toFloat()
+                    setColor(Color.TRANSPARENT)
                 }
-            } else {
-                TextView(context).apply {
-                    text = char
-                    textSize = 20f
-                    gravity = Gravity.CENTER
-                    val size = dpToPx(42)
-                    layoutParams = LayoutParams(size, size)
-                    setTextColor(currentTheme.popupTextColor)
-                    val bg = GradientDrawable().apply {
-                        cornerRadius = dpToPx(8).toFloat()
-                        setColor(Color.TRANSPARENT)
-                    }
-                    background = bg
-                }
+                background = bg
             }
-            accentsContainer?.addView(v)
+            accentsContainer?.addView(tv)
         }
         updateAccentsHighlight()
 

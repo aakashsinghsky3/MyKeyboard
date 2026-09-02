@@ -12,6 +12,27 @@ data class SuggestionResult(
 class PredictionEngine(context: Context) {
 
     private val userDb = UserDictionaryDb(context)
+    private val assetDictionary = java.util.concurrent.ConcurrentHashMap<String, Int>()
+
+    init {
+        // Load dictionary from assets asynchronously
+        Thread {
+            try {
+                context.assets.open("dictionary.txt").bufferedReader().useLines { lines ->
+                    lines.forEach { line ->
+                        val parts = line.trim().split("\\s+".toRegex())
+                        if (parts.size == 2) {
+                            val word = parts[0].lowercase()
+                            val freq = parts[1].toIntOrNull() ?: 1
+                            if (word.isNotEmpty()) {
+                                assetDictionary[word] = freq
+                            }
+                        }
+                    }
+                }
+            } catch (_: Exception) {}
+        }.start()
+    }
 
     private val N_GRAM_MAP = mapOf(
         "i am" to listOf("going", "here", "ready", "happy", "doing", "sure", "not", "fine"),
@@ -247,22 +268,40 @@ class PredictionEngine(context: Context) {
         // 1. Check auto-correction
         val autoCorrectMatch = AutoCorrectEngine.getCorrection(prefix, autoCorrectMode)
 
-        // 2. Find prefix matches in learned words + dictionary
-        val allMatches = mutableListOf<String>()
+        // 2. Find prefix matches in learned words + asset dictionary
+        val prefixMatches = mutableListOf<Pair<String, Int>>()
 
-        // Learned words first
-        learnedWords.keys.filter { it.startsWith(cleanPrefix) }.sortedByDescending { learnedWords[it] ?: 0 }.forEach {
-            if (!allMatches.contains(it)) allMatches.add(it)
+        // Learned user words (weighted heavily)
+        learnedWords.forEach { (word, freq) ->
+            if (word.startsWith(cleanPrefix)) {
+                prefixMatches.add(Pair(word, 100000 + freq * 100))
+            }
         }
 
-        // Common dictionary matches
-        COMMON_DICTIONARY.filter { it.startsWith(cleanPrefix) }.forEach {
-            if (!allMatches.contains(it)) allMatches.add(it)
+        // Asset dictionary words
+        assetDictionary.forEach { (word, freq) ->
+            if (word.startsWith(cleanPrefix) && prefixMatches.none { it.first == word }) {
+                prefixMatches.add(Pair(word, freq))
+            }
         }
 
-        // Fuzzy edit-distance fallback if no direct prefix matches found
-        if (allMatches.isEmpty() && cleanPrefix.length >= 3) {
-            COMMON_DICTIONARY.filter { levenshteinDistance(cleanPrefix, it) <= 2 && abs(cleanPrefix.length - it.length) <= 2 }.forEach {
+        // Common dictionary fallback
+        COMMON_DICTIONARY.forEach { word ->
+            if (word.startsWith(cleanPrefix) && prefixMatches.none { it.first == word }) {
+                prefixMatches.add(Pair(word, 10))
+            }
+        }
+
+        // Sort candidates by frequency score descending
+        val allMatches = prefixMatches.sortedByDescending { it.second }.map { it.first }.toMutableList()
+
+        // Fuzzy edit-distance fallback if < 3 matches found
+        if (allMatches.size < 3 && cleanPrefix.length >= 3) {
+            val fuzzy = assetDictionary.keys.filter {
+                levenshteinDistance(cleanPrefix, it) <= 2 && abs(cleanPrefix.length - it.length) <= 2
+            }.sortedBy { levenshteinDistance(cleanPrefix, it) }
+
+            fuzzy.forEach {
                 if (!allMatches.contains(it)) allMatches.add(it)
             }
         }
