@@ -1162,9 +1162,9 @@ class CustomKeyboardView @JvmOverloads constructor(
     private fun getStandardContentHeight(): Int {
         val isTablet = context.resources.configuration.smallestScreenWidthDp >= 600
         val isLandscape = context.resources.configuration.orientation == android.content.res.Configuration.ORIENTATION_LANDSCAPE
-        val baseRowHeight = if (isTablet) dpToPx(54) else if (isLandscape) dpToPx(42) else dpToPx(46)
-        val scaledRowHeight = (baseRowHeight * preferences.heightScale).toInt()
         val numRows = if (preferences.isNumberRowEnabled && keyboardMode == KeyboardMode.ALPHA) 5 else 4
+        val baseRowHeight = if (isTablet) dpToPx(56) else if (isLandscape) dpToPx(42) else if (numRows == 5) dpToPx(48) else dpToPx(52)
+        val scaledRowHeight = (baseRowHeight * preferences.heightScale).toInt()
         val rowMarginB = if (isTablet) dpToPx(6) else dpToPx(4)
         return (numRows * scaledRowHeight) + ((numRows - 1) * rowMarginB)
     }
