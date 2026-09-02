@@ -16,33 +16,38 @@ class PredictionEngine(context: Context) {
     private val prefixIndex = java.util.concurrent.ConcurrentHashMap<String, MutableList<Pair<String, Int>>>()
 
     init {
-        // Load 333,000+ word dictionary (3.3 Lakh words) from dictionary.txt.gz asynchronously
+        // Load 3.3 Lakh English dictionary + 5.4 Lakh Hindi/Haryanvi Devanagari dictionary asynchronously
         Thread {
             try {
                 val tempMap = mutableMapOf<String, Int>()
                 val tempPrefixMap = mutableMapOf<String, MutableList<Pair<String, Int>>>()
 
-                val gzipStream = java.util.zip.GZIPInputStream(context.assets.open("dictionary.txt.gz"))
-                gzipStream.bufferedReader().useLines { lines ->
-                    lines.forEach { line ->
-                        val parts = line.trim().split("\\s+".toRegex())
-                        if (parts.size == 2) {
-                            val word = parts[0].lowercase()
-                            val freq = parts[1].toIntOrNull() ?: 1
-                            if (word.isNotEmpty()) {
-                                tempMap[word] = freq
+                val dictFiles = listOf("dictionary.txt.gz", "hindi_dictionary.txt.gz")
+                for (fileName in dictFiles) {
+                    try {
+                        val gzipStream = java.util.zip.GZIPInputStream(context.assets.open(fileName))
+                        gzipStream.bufferedReader().useLines { lines ->
+                            lines.forEach { line ->
+                                val parts = line.trim().split("\\s+".toRegex())
+                                if (parts.isNotEmpty()) {
+                                    val word = parts[0].lowercase()
+                                    val freq = parts.getOrNull(1)?.toIntOrNull() ?: 100
+                                    if (word.isNotEmpty()) {
+                                        tempMap[word] = freq
 
-                                val maxLen = minOf(4, word.length)
-                                for (len in 1..maxLen) {
-                                    val prefix = word.substring(0, len)
-                                    val list = tempPrefixMap.getOrPut(prefix) { mutableListOf() }
-                                    if (list.size < 500) {
-                                        list.add(Pair(word, freq))
+                                        val maxLen = minOf(4, word.length)
+                                        for (len in 1..maxLen) {
+                                            val prefix = word.substring(0, len)
+                                            val list = tempPrefixMap.getOrPut(prefix) { mutableListOf() }
+                                            if (list.size < 500) {
+                                                list.add(Pair(word, freq))
+                                            }
+                                        }
                                     }
                                 }
                             }
                         }
-                    }
+                    } catch (_: Exception) {}
                 }
                 assetDictionary.putAll(tempMap)
                 tempPrefixMap.forEach { (k, v) ->
