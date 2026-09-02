@@ -262,7 +262,7 @@ class CustomKeyboardView @JvmOverloads constructor(
 
     fun updatePredictions(prefix: String, previousWords: List<String>) {
         activeRephraseRawInput = null
-        val result = predictionEngine.getSuggestions(prefix, previousWords, preferences.autoCorrectMode)
+        val result = predictionEngine.getSuggestions(prefix, previousWords, preferences.autoCorrectMode, preferences.currentLanguage)
         currentSuggestionResult = result
 
         val hasLeft = !result.left.isNullOrEmpty()

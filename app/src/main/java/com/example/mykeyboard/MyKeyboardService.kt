@@ -103,7 +103,7 @@ class MyKeyboardService : InputMethodService(),
 
         // Replace partial prefix if committing a suggestion word
         val textBefore = ic.getTextBeforeCursor(20, 0)?.toString() ?: ""
-        val lastWord = textBefore.split(Regex("[^a-zA-Z0-9']")).lastOrNull() ?: ""
+        val lastWord = textBefore.split(Regex("[^\\p{L}\\p{N}']")).lastOrNull() ?: ""
 
         if (!isEmojiOrSymbol(text) && text.startsWith(lastWord, ignoreCase = true) && lastWord.isNotEmpty() && text.length > lastWord.length) {
             ic.deleteSurroundingText(lastWord.length, 0)
@@ -261,12 +261,12 @@ class MyKeyboardService : InputMethodService(),
 
         // 2. Auto-Correction on Space (Gboard Fast-Typing Engine)
         if (!textBefore.endsWith(" ")) {
-            val allWords = textBefore.trim().split(Regex("[^a-zA-Z0-9']")).filter { it.isNotEmpty() }
+            val allWords = textBefore.trim().split(Regex("[^\\p{L}\\p{N}']")).filter { it.isNotEmpty() }
             val lastWord = allWords.lastOrNull() ?: ""
 
             if (lastWord.isNotEmpty()) {
                 val prevWords = allWords.dropLast(1)
-                val suggestionResult = predictionEngine.getSuggestions(lastWord, prevWords, preferences.autoCorrectMode)
+                val suggestionResult = predictionEngine.getSuggestions(lastWord, prevWords, preferences.autoCorrectMode, preferences.currentLanguage)
                 val bestMatch = suggestionResult.center
 
                 if (!bestMatch.isNullOrEmpty() && bestMatch.lowercase() != lastWord.lowercase()) {
@@ -394,7 +394,7 @@ class MyKeyboardService : InputMethodService(),
         val textBefore = ic.getTextBeforeCursor(50, 0)?.toString() ?: ""
 
         val isAfterSpace = textBefore.endsWith(" ")
-        val allWords = textBefore.trim().split(Regex("[^a-zA-Z0-9']")).filter { it.isNotEmpty() }
+        val allWords = textBefore.trim().split(Regex("[^\\p{L}\\p{N}']")).filter { it.isNotEmpty() }
 
         val prefix = if (isAfterSpace) "" else (allWords.lastOrNull() ?: "")
         val prevWords = if (isAfterSpace) allWords else allWords.dropLast(1)

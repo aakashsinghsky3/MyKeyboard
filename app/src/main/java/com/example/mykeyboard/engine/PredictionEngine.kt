@@ -251,7 +251,8 @@ class PredictionEngine(context: Context) {
     fun getSuggestions(
         prefix: String,
         previousWords: List<String>,
-        autoCorrectMode: AutoCorrectMode = AutoCorrectMode.CONSERVATIVE
+        autoCorrectMode: AutoCorrectMode = AutoCorrectMode.CONSERVATIVE,
+        language: String = "en"
     ): SuggestionResult {
         val learnedWords = userDb.getLearnedWords()
 
@@ -277,8 +278,12 @@ class PredictionEngine(context: Context) {
                 if (!predictions.contains(it)) predictions.add(it)
             }
 
-            // 4. Default high-frequency fallbacks if candidates < 3
-            val defaults = listOf("the", "you", "to", "is", "in", "bhai", "hai", "and")
+            // 4. Language-specific default high-frequency fallbacks
+            val defaults = if (language == "hi") {
+                listOf("नमस्ते", "आप", "कैसे", "हैं", "धन्यवाद", "रामराम", "बढ़िया", "काम", "घर")
+            } else {
+                listOf("the", "you", "to", "is", "in", "bhai", "hai", "and")
+            }
             defaults.forEach {
                 if (!predictions.contains(it)) predictions.add(it)
             }
