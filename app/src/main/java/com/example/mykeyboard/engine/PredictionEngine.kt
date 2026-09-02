@@ -182,8 +182,9 @@ class PredictionEngine(context: Context) {
         "phone", "email", "place", "thing", "love", "help", "need", "call", "start", "finish",
 
         // High-frequency English dictionary (600+ words)
+        "laptop", "laptops", "apple", "apples", "macbook", "iphone", "android", "ipad", "computer", "application",
         "about", "above", "account", "across", "action", "activity", "actually", "address", "almost", "already",
-        "also", "although", "always", "amount", "another", "answer", "anyone", "anything", "anyway", "application",
+        "also", "although", "always", "amount", "another", "answer", "anyone", "anything", "anyway",
         "around", "article", "available", "awesome", "beautiful", "because", "become", "before", "behind", "believe",
         "between", "billion", "business", "camera", "cannot", "center", "certain", "change", "children", "company",
         "computer", "condition", "consider", "continue", "country", "course", "create", "current", "customer", "daughter",
@@ -305,11 +306,18 @@ class PredictionEngine(context: Context) {
                 }
             }
         } else {
-            // Fallback scan for prefixes longer than 4 chars
+            // Scan for prefixes longer than 4 chars or while loading
             assetDictionary.forEach { (word, freq) ->
                 if (word.startsWith(cleanPrefix) && prefixMatches.none { it.first == word }) {
                     prefixMatches.add(Pair(word, freq))
                 }
+            }
+        }
+
+        // Always fallback to COMMON_DICTIONARY so suggestions NEVER fail
+        COMMON_DICTIONARY.forEach { word ->
+            if (word.startsWith(cleanPrefix) && prefixMatches.none { it.first == word }) {
+                prefixMatches.add(Pair(word, 500))
             }
         }
 
