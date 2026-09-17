@@ -60,7 +60,7 @@
                 android:id="@+id/tvVersion"
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
-                android:text="v13.6"
+                android:text="v13.7"
                 android:textColor="@color/secondary"
                 android:textSize="12sp"
                 android:textStyle="bold"

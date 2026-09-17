@@ -765,6 +765,7 @@ class CustomKeyboardView @JvmOverloads constructor(
                 } else {
                     performHapticFeedback()
                     performAudioFeedback()
+                    actionListener?.onBackspace()
                     actionListener?.onTextKey(key.popupChars[0])
                 }
             } else if (key.altText.isNotEmpty()) {
@@ -772,6 +773,7 @@ class CustomKeyboardView @JvmOverloads constructor(
                 dismissPopup()
                 performHapticFeedback()
                 performAudioFeedback()
+                actionListener?.onBackspace()
                 actionListener?.onTextKey(key.altText)
             }
         }
@@ -788,16 +790,18 @@ class CustomKeyboardView @JvmOverloads constructor(
                     performAudioFeedback()
                     animateKeyPress(v, true)
 
-                    if (key.type == KeyType.BACKSPACE) {
-                        isBackspaceHeld = true
-                        actionListener?.onBackspace()
-                        handler.postDelayed(backspaceRepeatRunnable, 350)
-                    } else if (key.type == KeyType.CHARACTER || key.type == KeyType.COMMA || key.type == KeyType.PERIOD) {
+                    if (key.type == KeyType.CHARACTER || key.type == KeyType.COMMA || key.type == KeyType.PERIOD) {
+                        // Instant 0ms key output on ACTION_DOWN so fast multi-touch typing NEVER misses a letter
+                        handleKeyClick(key)
                         if (preferences.isPopupEnabled) {
                             val text = if (shiftState != ShiftState.UNSHIFTED) key.shiftText else key.primaryText
                             showKeyPopup(v, text)
                         }
                         handler.postDelayed(longPressRunnable, 350)
+                    } else if (key.type == KeyType.BACKSPACE) {
+                        isBackspaceHeld = true
+                        actionListener?.onBackspace()
+                        handler.postDelayed(backspaceRepeatRunnable, 350)
                     } else if (key.type == KeyType.SPACE) {
                         spaceLongPressRunnable = Runnable {
                             if (!isCursorSliding && !isLongPressHandled) {
@@ -845,11 +849,14 @@ class CustomKeyboardView @JvmOverloads constructor(
                         if (isLongPressHandled && accentsPopupWindow?.isShowing == true) {
                             if (activeAccentIndex in currentPopupChars.indices) {
                                 val accent = currentPopupChars[activeAccentIndex]
+                                actionListener?.onBackspace()
                                 actionListener?.onTextKey(accent)
                             }
                             dismissAccentsPopup()
                         } else if (!isCursorSliding && !isLongPressHandled) {
-                            handleKeyClick(key)
+                            if (key.type != KeyType.CHARACTER && key.type != KeyType.COMMA && key.type != KeyType.PERIOD) {
+                                handleKeyClick(key)
+                            }
                         }
                     } else {
                         dismissAccentsPopup()
@@ -868,7 +875,7 @@ class CustomKeyboardView @JvmOverloads constructor(
                 actionListener?.onTextKey(text)
                 if (shiftState == ShiftState.SHIFTED_ONCE) {
                     shiftState = ShiftState.UNSHIFTED
-                    renderKeyboardLayout()
+                    handler.post { renderKeyboardLayout() }
                 }
             }
             KeyType.SPACE -> {
