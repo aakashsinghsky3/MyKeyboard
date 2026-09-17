@@ -943,7 +943,7 @@ class CustomKeyboardView @JvmOverloads constructor(
         val currentIdx = if (preferences.currentLanguage == "hi") 1 else 0
 
         val builder = android.app.AlertDialog.Builder(context)
-        builder.setTitle("Select Keyboard Language 🌐")
+        builder.setTitle("Select Keyboard Language")
         builder.setSingleChoiceItems(languages, currentIdx) { dialog, which ->
             preferences.currentLanguage = langIds[which]
             renderKeyboardLayout()
@@ -952,11 +952,13 @@ class CustomKeyboardView @JvmOverloads constructor(
         builder.setNegativeButton("Cancel", null)
 
         val dialog = builder.create()
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
-            dialog.window?.setType(android.view.WindowManager.LayoutParams.TYPE_APPLICATION_OVERLAY)
-        } else {
-            @Suppress("DEPRECATION")
-            dialog.window?.setType(android.view.WindowManager.LayoutParams.TYPE_PHONE)
+        val win = dialog.window
+        if (win != null) {
+            val lp = win.attributes
+            lp.token = windowToken
+            lp.type = android.view.WindowManager.LayoutParams.TYPE_APPLICATION_ATTACHED_DIALOG
+            win.attributes = lp
+            win.addFlags(android.view.WindowManager.LayoutParams.FLAG_ALT_FOCUSABLE_IM)
         }
         try {
             dialog.show()

@@ -155,4 +155,27 @@ class KeyboardEngineUnitTest {
         // AMOLED Black #000000 (0, 0, 0) -> Dark theme (needs light navigation icons)
         assertFalse("AMOLED black must be dark", isColorLight(0, 0, 0))
     }
+
+    @Test
+    fun testGlobeKeyRemovedFromKeyboardLayouts() {
+        // English alpha rows must NOT have LANGUAGE_SWITCH key
+        val engRows = KeyLayoutHelper.getAlphaRows(isNumberRowEnabled = false, language = KeyboardLanguage.ENGLISH)
+        val engGlobe = engRows.flatten().find { it.type == KeyType.LANGUAGE_SWITCH || it.primaryText == "🌐" }
+        assertNull("Globe / language switch key must be removed from English layout", engGlobe)
+
+        // English row 4 must have Spacebar
+        val engSpace = engRows.last().find { it.type == KeyType.SPACE }
+        assertNotNull("English bottom row must contain Spacebar", engSpace)
+        assertEquals("English", engSpace!!.primaryText)
+
+        // Hindi alpha rows must NOT have LANGUAGE_SWITCH key
+        val hiRows = KeyLayoutHelper.getAlphaRows(isNumberRowEnabled = false, language = KeyboardLanguage.HINDI)
+        val hiGlobe = hiRows.flatten().find { it.type == KeyType.LANGUAGE_SWITCH || it.primaryText == "🌐" }
+        assertNull("Globe / language switch key must be removed from Hindi layout", hiGlobe)
+
+        // Hindi row 4 must have Spacebar
+        val hiSpace = hiRows.last().find { it.type == KeyType.SPACE }
+        assertNotNull("Hindi bottom row must contain Spacebar", hiSpace)
+        assertEquals("हिंदी", hiSpace!!.primaryText)
+    }
 }

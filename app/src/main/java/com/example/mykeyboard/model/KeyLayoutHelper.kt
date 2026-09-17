@@ -125,20 +125,19 @@ object KeyLayoutHelper {
         r3.add(KeyModel(primaryText = "DEL", type = KeyType.BACKSPACE, weight = 1.5f))
         rows.add(r3)
 
-        // Row 4: [?123] [🌐] [COMMA] [SPACE] [PERIOD] [ENTER]
+        // Row 4: [?123] [COMMA] [SPACE] [PERIOD] [ENTER]
         val r4 = listOf(
-            KeyModel(primaryText = "?123", type = KeyType.MODE_CHANGE, weight = 1.25f),
-            KeyModel(primaryText = "🌐", type = KeyType.LANGUAGE_SWITCH, weight = 1.0f),
-            KeyModel(primaryText = ",", type = KeyType.COMMA, weight = 0.9f),
-            KeyModel(primaryText = "English", type = KeyType.SPACE, weight = 4.0f),
+            KeyModel(primaryText = "?123", type = KeyType.MODE_CHANGE, weight = 1.4f),
+            KeyModel(primaryText = ",", type = KeyType.COMMA, weight = 1.0f),
+            KeyModel(primaryText = "English", type = KeyType.SPACE, weight = 5.2f),
             KeyModel(
                 primaryText = ".",
                 shiftText = ".",
                 popupChars = listOf("...", "!", "?", ",", "-", "@"),
                 type = KeyType.PERIOD,
-                weight = 0.9f
+                weight = 1.0f
             ),
-            KeyModel(primaryText = "ENTER", type = KeyType.ENTER, weight = 1.5f)
+            KeyModel(primaryText = "ENTER", type = KeyType.ENTER, weight = 1.4f)
         )
         rows.add(r4)
 
@@ -230,14 +229,13 @@ object KeyLayoutHelper {
             rows.add(r3)
         }
 
-        // Row 4: [?123] [🌐] [ष] [स] [ह] [ space (हिंदी) ] [क्ष] [त्र] [ज्ञ] [ENTER]
+        // Row 4: [?123] [ष] [स] [ह] [ space (हिंदी) ] [क्ष] [त्र] [ज्ञ] [ENTER]
         val r4 = listOf(
             KeyModel(primaryText = "?123", type = KeyType.MODE_CHANGE, weight = 1.25f),
-            KeyModel(primaryText = "🌐", type = KeyType.LANGUAGE_SWITCH, weight = 1.0f),
             KeyModel(primaryText = "ष", type = KeyType.CHARACTER, weight = 0.8f),
             KeyModel(primaryText = "स", type = KeyType.CHARACTER, weight = 0.8f),
             KeyModel(primaryText = "ह", type = KeyType.CHARACTER, weight = 0.8f),
-            KeyModel(primaryText = "हिंदी", type = KeyType.SPACE, weight = 3.5f),
+            KeyModel(primaryText = "हिंदी", type = KeyType.SPACE, weight = 4.5f),
             KeyModel(primaryText = "क्ष", type = KeyType.CHARACTER, weight = 0.8f),
             KeyModel(primaryText = "त्र", type = KeyType.CHARACTER, weight = 0.8f),
             KeyModel(primaryText = "ज्ञ", type = KeyType.CHARACTER, weight = 0.8f),
@@ -319,14 +317,13 @@ object KeyLayoutHelper {
             rows.add(r3)
         }
 
-        // Row 4: [?123] [🌐] [ , ] [ space (हरियाणवी) ] [ . ] [Enter]
+        // Row 4: [?123] [ , ] [ space (हरियाणवी) ] [ . ] [Enter]
         val r4 = listOf(
-            KeyModel(primaryText = "?123", type = KeyType.MODE_CHANGE, weight = 1.25f),
-            KeyModel(primaryText = "🌐", type = KeyType.LANGUAGE_SWITCH, weight = 1.0f),
-            KeyModel(primaryText = ",", type = KeyType.COMMA, weight = 0.9f),
-            KeyModel(primaryText = "हरियाणवी", type = KeyType.SPACE, weight = 4.0f),
-            KeyModel(primaryText = ".", type = KeyType.PERIOD, weight = 0.9f),
-            KeyModel(primaryText = "ENTER", type = KeyType.ENTER, weight = 1.5f)
+            KeyModel(primaryText = "?123", type = KeyType.MODE_CHANGE, weight = 1.4f),
+            KeyModel(primaryText = ",", type = KeyType.COMMA, weight = 1.0f),
+            KeyModel(primaryText = "हरियाणवी", type = KeyType.SPACE, weight = 5.2f),
+            KeyModel(primaryText = ".", type = KeyType.PERIOD, weight = 1.0f),
+            KeyModel(primaryText = "ENTER", type = KeyType.ENTER, weight = 1.4f)
         )
         rows.add(r4)
 
