@@ -120,7 +120,7 @@ class MyKeyboardService : InputMethodService(),
                 checkAutoCaps()
                 updatePredictions()
             }
-            uiHandler.post(pendingPredictionRunnable!!)
+            uiHandler.postDelayed(pendingPredictionRunnable!!, 75)
             return
         }
 

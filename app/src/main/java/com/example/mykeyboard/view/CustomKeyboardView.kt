@@ -9,6 +9,7 @@ import android.graphics.Color
 import android.graphics.Typeface
 import android.graphics.drawable.BitmapDrawable
 import android.graphics.drawable.GradientDrawable
+import android.graphics.drawable.InsetDrawable
 import android.media.AudioManager
 import android.os.Build
 import android.os.Handler
@@ -297,15 +298,15 @@ class CustomKeyboardView @JvmOverloads constructor(
         if (prefix.isNotEmpty() || hasAnyCandidate) {
             candidatesLayout.visibility = View.VISIBLE
 
-            candidateLeftTv.visibility = if (hasLeft) View.VISIBLE else View.GONE
-            candidateCenterTv.visibility = if (hasCenter) View.VISIBLE else View.GONE
-            candidateRightTv.visibility = if (hasRight) View.VISIBLE else View.GONE
+            candidateLeftTv.visibility = if (hasLeft) View.VISIBLE else View.INVISIBLE
+            candidateCenterTv.visibility = if (hasCenter) View.VISIBLE else View.INVISIBLE
+            candidateRightTv.visibility = if (hasRight) View.VISIBLE else View.INVISIBLE
         } else {
-            candidatesLayout.visibility = View.GONE
+            candidatesLayout.visibility = View.INVISIBLE
 
-            candidateLeftTv.visibility = View.GONE
-            candidateCenterTv.visibility = View.GONE
-            candidateRightTv.visibility = View.GONE
+            candidateLeftTv.visibility = View.INVISIBLE
+            candidateCenterTv.visibility = View.INVISIBLE
+            candidateRightTv.visibility = View.INVISIBLE
         }
 
         // Left Candidate
@@ -313,14 +314,6 @@ class CustomKeyboardView @JvmOverloads constructor(
 
         // Center Candidate (Primary / Autocorrect)
         candidateCenterTv.text = result.center ?: ""
-        candidateCenterTv.setTextSize(15.5f)
-        candidateCenterTv.setTypeface(Typeface.DEFAULT_BOLD, if (result.isAutoCorrect) Typeface.BOLD_ITALIC else Typeface.BOLD)
-        candidateCenterTv.setTextColor(currentTheme.textColorPrimary)
-        val bg = GradientDrawable().apply {
-            cornerRadius = dpToPx(10).toFloat()
-            setColor(currentTheme.keySpecialColor)
-        }
-        candidateCenterTv.background = bg
 
         // Right Candidate
         candidateRightTv.text = result.right ?: ""
@@ -576,9 +569,7 @@ class CustomKeyboardView @JvmOverloads constructor(
                     orientation = HORIZONTAL
                     gravity = Gravity.CENTER
                     weightSum = totalWeight
-                    layoutParams = LayoutParams(LayoutParams.MATCH_PARENT, currentRowHeight).apply {
-                        bottomMargin = rowMarginB
-                    }
+                    layoutParams = LayoutParams(LayoutParams.MATCH_PARENT, currentRowHeight)
                 }
 
                 keyRow.forEach { keyModel ->
@@ -599,12 +590,10 @@ class CustomKeyboardView @JvmOverloads constructor(
         }
 
         val keyMarginH = (3.0f * context.resources.displayMetrics.density).toInt()
+        val keyMarginV = (2.0f * context.resources.displayMetrics.density).toInt()
         val keyLayout = FrameLayout(context).apply {
             isMotionEventSplittingEnabled = true
-            layoutParams = LayoutParams(0, LayoutParams.MATCH_PARENT, key.weight).apply {
-                marginStart = keyMarginH
-                marginEnd = keyMarginH
-            }
+            layoutParams = LayoutParams(0, LayoutParams.MATCH_PARENT, key.weight)
         }
 
         val bgDrawable = GradientDrawable().apply {
@@ -630,7 +619,8 @@ class CustomKeyboardView @JvmOverloads constructor(
             }
             setColor(color)
         }
-        keyLayout.background = bgDrawable
+        val insetBgDrawable = InsetDrawable(bgDrawable, keyMarginH, keyMarginV, keyMarginH, keyMarginV)
+        keyLayout.background = insetBgDrawable
 
         when (key.type) {
             KeyType.SHIFT -> {
@@ -1039,7 +1029,7 @@ class CustomKeyboardView @JvmOverloads constructor(
     // Key Animations & Popups
     // ---------------------------------------------------------------------------------------------
     private fun animateKeyPress(view: View, isPressed: Boolean) {
-        view.alpha = if (isPressed) 0.65f else 1.0f
+        view.isPressed = isPressed
     }
 
     private fun initKeyPopup() {
@@ -1049,11 +1039,17 @@ class CustomKeyboardView @JvmOverloads constructor(
             typeface = Typeface.DEFAULT_BOLD
             val pad = dpToPx(8)
             setPadding(pad, pad, pad, pad)
+            val bg = GradientDrawable().apply {
+                cornerRadius = dpToPx(12).toFloat()
+                setColor(currentTheme.popupBgColor)
+                setStroke(dpToPx(1), currentTheme.rippleColor)
+            }
+            background = bg
         }
         popupTextView = popupView
         popupWindow = PopupWindow(popupView, dpToPx(56), dpToPx(64)).apply {
             isTouchable = false
-            animationStyle = android.R.style.Animation_Toast
+            animationStyle = 0
         }
     }
 
@@ -1061,12 +1057,6 @@ class CustomKeyboardView @JvmOverloads constructor(
         popupTextView?.let { tv ->
             tv.text = text
             tv.setTextColor(currentTheme.popupTextColor)
-            val bg = GradientDrawable().apply {
-                cornerRadius = dpToPx(12).toFloat()
-                setColor(currentTheme.popupBgColor)
-                setStroke(dpToPx(1), currentTheme.rippleColor)
-            }
-            tv.background = bg
 
             val location = IntArray(2)
             anchor.getLocationOnScreen(location)
@@ -1074,7 +1064,11 @@ class CustomKeyboardView @JvmOverloads constructor(
             val y = location[1] - dpToPx(68)
 
             try {
-                popupWindow?.showAtLocation(anchor, Gravity.NO_GRAVITY, x, y)
+                if (popupWindow?.isShowing == true) {
+                    popupWindow?.update(x, y, dpToPx(56), dpToPx(64))
+                } else {
+                    popupWindow?.showAtLocation(anchor, Gravity.NO_GRAVITY, x, y)
+                }
             } catch (_: Exception) {}
         }
     }
@@ -1297,17 +1291,21 @@ class CustomKeyboardView @JvmOverloads constructor(
     // ---------------------------------------------------------------------------------------------
     // Haptic & Sound Feedback
     // ---------------------------------------------------------------------------------------------
+    private val hapticExecutor = java.util.concurrent.Executors.newSingleThreadExecutor()
+
     private fun performHapticFeedback() {
         if (!preferences.isHapticEnabled) return
-        try {
-            val duration = preferences.hapticDuration
-            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
-                vibrator?.vibrate(VibrationEffect.createOneShot(duration, VibrationEffect.DEFAULT_AMPLITUDE))
-            } else {
-                @Suppress("DEPRECATION")
-                vibrator?.vibrate(duration)
-            }
-        } catch (_: Exception) {}
+        hapticExecutor.execute {
+            try {
+                val duration = preferences.hapticDuration
+                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+                    vibrator?.vibrate(VibrationEffect.createOneShot(duration, VibrationEffect.DEFAULT_AMPLITUDE))
+                } else {
+                    @Suppress("DEPRECATION")
+                    vibrator?.vibrate(duration)
+                }
+            } catch (_: Exception) {}
+        }
     }
 
     private fun performAudioFeedback() {
