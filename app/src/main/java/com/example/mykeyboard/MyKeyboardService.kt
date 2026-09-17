@@ -1,5 +1,6 @@
 package com.example.mykeyboard
 
+import android.graphics.Color
 import android.content.ClipboardManager
 import android.content.Context
 import android.content.Intent
@@ -9,13 +10,18 @@ import android.os.Build
 import android.text.TextUtils
 import android.view.KeyEvent
 import android.view.View
+import android.view.WindowManager
 import android.view.inputmethod.EditorInfo
 import android.view.inputmethod.InputConnection
+import androidx.core.graphics.ColorUtils
+import androidx.core.view.WindowCompat
+import androidx.core.view.WindowInsetsControllerCompat
 import com.example.mykeyboard.engine.AutoCorrectEngine
 import com.example.mykeyboard.engine.ClipboardHistoryManager
 import com.example.mykeyboard.engine.PredictionEngine
 import com.example.mykeyboard.engine.UndoRedoManager
 import android.widget.Toast
+import com.example.mykeyboard.model.KeyboardTheme
 import com.example.mykeyboard.model.ShiftState
 import com.example.mykeyboard.utils.KeyboardPreferences
 import com.example.mykeyboard.view.CustomKeyboardView
@@ -65,7 +71,13 @@ class MyKeyboardService : InputMethodService(),
             applyTheme(preferences.theme)
         }
         keyboardView = view
+        updateNavigationBarAppearance()
         return view
+    }
+
+    override fun onWindowShown() {
+        super.onWindowShown()
+        updateNavigationBarAppearance()
     }
 
     override fun onStartInput(attribute: EditorInfo?, restarting: Boolean) {
@@ -76,6 +88,7 @@ class MyKeyboardService : InputMethodService(),
 
     override fun onStartInputView(info: EditorInfo?, restarting: Boolean) {
         super.onStartInputView(info, restarting)
+        updateNavigationBarAppearance()
         if (info != null) {
             keyboardView?.setImeOptions(info.imeOptions, info.actionLabel)
         }
@@ -451,7 +464,38 @@ class MyKeyboardService : InputMethodService(),
             KeyboardPreferences.KEY_CUSTOM_BG_PATH,
             KeyboardPreferences.KEY_CUSTOM_BG_OPACITY -> {
                 keyboardView?.applyTheme(preferences.theme)
+                updateNavigationBarAppearance()
             }
         }
+    }
+
+    @Suppress("DEPRECATION")
+    private fun updateNavigationBarAppearance() {
+        try {
+            val win = window?.window ?: return
+            val theme = preferences.theme
+            val isCustomBg = !preferences.customBgPath.isNullOrEmpty() && java.io.File(preferences.customBgPath!!).exists()
+            val navColor = if (isCustomBg) {
+                Color.parseColor("#0F172A")
+            } else {
+                theme.backgroundColor
+            }
+            val isLight = if (isCustomBg) false else (ColorUtils.calculateLuminance(navColor) > 0.5)
+
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.LOLLIPOP) {
+                win.addFlags(WindowManager.LayoutParams.FLAG_DRAWS_SYSTEM_BAR_BACKGROUNDS)
+                win.clearFlags(WindowManager.LayoutParams.FLAG_TRANSLUCENT_NAVIGATION)
+                win.navigationBarColor = navColor
+            }
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
+                win.isNavigationBarContrastEnforced = false
+            }
+
+            val decor = win.decorView
+            decor.setBackgroundColor(navColor)
+
+            val controller = WindowInsetsControllerCompat(win, decor)
+            controller.isAppearanceLightNavigationBars = isLight
+        } catch (_: Exception) {}
     }
 }

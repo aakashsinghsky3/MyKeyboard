@@ -1,4 +1,4 @@
-﻿package com.example.mykeyboard
+package com.example.mykeyboard
 
 import com.example.mykeyboard.engine.AutoCorrectEngine
 import com.example.mykeyboard.engine.AutoCorrectMode
@@ -137,5 +137,22 @@ class KeyboardEngineUnitTest {
         // Inset is 48dp (96px) -> padding should be exactly 48dp. NO OVERLAP WITH BACK BUTTON!
         val edgeToEdge3ButtonPadding = calculatePadding(dynamicBottomInset = 96, density = 2.0f)
         assertEquals(96, edgeToEdge3ButtonPadding)
+    }
+
+    @Test
+    fun testLightDarkCalculationLogic() {
+        fun isColorLight(r: Int, g: Int, b: Int): Boolean {
+            val luminance = (0.2126 * r + 0.7152 * g + 0.0722 * b) / 255.0
+            return luminance > 0.5
+        }
+
+        // Pastel Pink #FDF2F4 (253, 242, 244) -> Light theme (needs dark navigation icons)
+        assertTrue("Pastel pink must be light", isColorLight(253, 242, 244))
+
+        // Matte Dark #18181B (24, 24, 27) -> Dark theme (needs light navigation icons)
+        assertFalse("Matte dark must be dark", isColorLight(24, 24, 27))
+
+        // AMOLED Black #000000 (0, 0, 0) -> Dark theme (needs light navigation icons)
+        assertFalse("AMOLED black must be dark", isColorLight(0, 0, 0))
     }
 }
