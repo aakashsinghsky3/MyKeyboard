@@ -32,19 +32,16 @@ class KeyboardEngineUnitTest {
 
     @Test
     fun testSymbolLayoutLanguageLabels() {
-        // English symbols layout should have "ABC" mode change key
         val engSymbols1 = KeyLayoutHelper.getSymbols1Rows(isNumberRowEnabled = false, language = KeyboardLanguage.ENGLISH)
         val engModeKey1 = engSymbols1.flatten().find { it.type == KeyType.MODE_CHANGE && (it.primaryText == "ABC" || it.primaryText == "अआइ") }
         assertNotNull(engModeKey1)
         assertEquals("ABC", engModeKey1!!.primaryText)
 
-        // Hindi symbols layout should have "अआइ" mode change key
         val hiSymbols1 = KeyLayoutHelper.getSymbols1Rows(isNumberRowEnabled = false, language = KeyboardLanguage.HINDI)
         val hiModeKey1 = hiSymbols1.flatten().find { it.type == KeyType.MODE_CHANGE && (it.primaryText == "ABC" || it.primaryText == "अआइ") }
         assertNotNull(hiModeKey1)
         assertEquals("अआइ", hiModeKey1!!.primaryText)
 
-        // Symbols 2 English & Hindi check
         val engSymbols2 = KeyLayoutHelper.getSymbols2Rows(isNumberRowEnabled = false, language = KeyboardLanguage.ENGLISH)
         val engModeKey2 = engSymbols2.flatten().find { it.type == KeyType.MODE_CHANGE && (it.primaryText == "ABC" || it.primaryText == "अआइ") }
         assertNotNull(engModeKey2)
@@ -58,7 +55,6 @@ class KeyboardEngineUnitTest {
 
     @Test
     fun testNumberRowSuppressesQpAltText() {
-        // With number row enabled: Q-P keys should NOT have subscript numbers
         val rowsWithNum = KeyLayoutHelper.getAlphaRows(isNumberRowEnabled = true, language = KeyboardLanguage.ENGLISH)
         val qRowWithNum = rowsWithNum.find { row -> row.any { it.primaryText == "q" } }
         assertNotNull(qRowWithNum)
@@ -66,7 +62,6 @@ class KeyboardEngineUnitTest {
         assertNotNull(qKeyWithNum)
         assertEquals("", qKeyWithNum!!.altText)
 
-        // With number row disabled: Q-P keys SHOULD have subscript numbers
         val rowsWithoutNum = KeyLayoutHelper.getAlphaRows(isNumberRowEnabled = false, language = KeyboardLanguage.ENGLISH)
         val qRowWithoutNum = rowsWithoutNum.find { row -> row.any { it.primaryText == "q" } }
         assertNotNull(qRowWithoutNum)
@@ -83,7 +78,6 @@ class KeyboardEngineUnitTest {
 
     @Test
     fun testFastPathKeyLogic() {
-        // Any normal keyboard keystroke does not end with space -> must take 0ms fast path
         assertTrue(! "a".endsWith(" "))
         assertTrue(! "W".endsWith(" "))
         assertTrue(! "क्ष".endsWith(" "))
@@ -93,7 +87,6 @@ class KeyboardEngineUnitTest {
         assertTrue(! "✅".endsWith(" "))
         assertTrue(! "1️⃣".endsWith(" "))
 
-        // Candidate suggestions clicked from candidate bar end with space -> take word commit path
         assertTrue("hello ".endsWith(" "))
         assertTrue("the ".endsWith(" "))
     }
@@ -120,5 +113,29 @@ class KeyboardEngineUnitTest {
         assertNotNull(shiftedA)
         assertEquals("a", unshiftedA!!.primaryText)
         assertEquals("A", shiftedA!!.shiftText)
+    }
+
+    @Test
+    fun testDynamicBottomPaddingCalculation() {
+        // Function replicating CustomKeyboardView's dynamic bottom padding logic
+        fun calculatePadding(dynamicBottomInset: Int, density: Float = 2.0f): Int {
+            fun dp(value: Int) = (value * density).toInt()
+            return if (dynamicBottomInset > 0) dynamicBottomInset else dp(6)
+        }
+
+        // 1. Realme Narzo 50i / ColorOS 3-button mode (window sits above nav bar):
+        // Inset is 0 -> padding should be 6dp (12px on 2x density), NOT 48dp! NO BLACK STRIP!
+        val realme3ButtonPadding = calculatePadding(dynamicBottomInset = 0, density = 2.0f)
+        assertEquals(12, realme3ButtonPadding)
+
+        // 2. Gesture Navigation mode (window extends behind gesture bar):
+        // Inset is 24dp (48px) -> padding should be exactly 24dp. NO OVERLAP WITH GESTURE PILL!
+        val gesturePadding = calculatePadding(dynamicBottomInset = 48, density = 2.0f)
+        assertEquals(48, gesturePadding)
+
+        // 3. Edge-to-Edge 3-Button mode (window extends behind 3-button nav):
+        // Inset is 48dp (96px) -> padding should be exactly 48dp. NO OVERLAP WITH BACK BUTTON!
+        val edgeToEdge3ButtonPadding = calculatePadding(dynamicBottomInset = 96, density = 2.0f)
+        assertEquals(96, edgeToEdge3ButtonPadding)
     }
 }

@@ -162,7 +162,7 @@ class CustomKeyboardView @JvmOverloads constructor(
             layoutParams = LayoutParams(LayoutParams.MATCH_PARENT, LayoutParams.WRAP_CONTENT)
         }
 
-        val initialBottomPad = maxOf(getNavigationBarHeight(), dpToPx(6))
+        val initialBottomPad = dpToPx(6)
         rowsLayout = LinearLayout(context).apply {
             orientation = VERTICAL
             gravity = Gravity.CENTER_HORIZONTAL
@@ -174,8 +174,8 @@ class CustomKeyboardView @JvmOverloads constructor(
 
         androidx.core.view.ViewCompat.setOnApplyWindowInsetsListener(this) { _, windowInsets ->
             val navInsets = windowInsets.getInsets(androidx.core.view.WindowInsetsCompat.Type.navigationBars())
-            val navH = if (navInsets.bottom > 0) navInsets.bottom else getNavigationBarHeight()
-            val bottomPad = maxOf(navH, dpToPx(48))
+            dynamicBottomInset = navInsets.bottom
+            val bottomPad = getCalculatedBottomPadding()
             rowsLayout.setPadding(dpToPx(8), dpToPx(3), dpToPx(8), bottomPad)
             windowInsets
         }
@@ -1162,10 +1162,10 @@ class CustomKeyboardView @JvmOverloads constructor(
                     LayoutParams.WRAP_CONTENT
                 )
             )
-            val defaultBottomPad = maxOf(getNavigationBarHeight(), dpToPx(48))
+            val defaultBottomPad = getCalculatedBottomPadding()
             emojiKeyboardView?.updateFixedContentHeight(targetContentH, defaultBottomPad)
         } else {
-            val defaultBottomPad = maxOf(getNavigationBarHeight(), dpToPx(48))
+            val defaultBottomPad = getCalculatedBottomPadding()
             emojiKeyboardView?.updateFixedContentHeight(targetContentH, defaultBottomPad)
             emojiKeyboardView?.visibility = View.VISIBLE
         }
@@ -1247,14 +1247,17 @@ class CustomKeyboardView @JvmOverloads constructor(
         } catch (_: Exception) {}
     }
 
-    private fun getNavigationBarHeight(): Int {
-        val resourceId = context.resources.getIdentifier("navigation_bar_height", "dimen", "android")
-        return if (resourceId > 0) context.resources.getDimensionPixelSize(resourceId) else 0
-    }
+    private var dynamicBottomInset: Int = -1
 
     private fun getCalculatedBottomPadding(): Int {
-        val navH = getNavigationBarHeight()
-        return if (navH > 0) navH else dpToPx(12)
+        return if (dynamicBottomInset > 0) {
+            // Live Window Insets from Android WindowManager:
+            // If bottom inset > 0 (e.g. 24dp for gesture bar or 48dp for edge-to-edge 3-button), use it directly to prevent overlap!
+            dynamicBottomInset
+        } else {
+            // If bottom inset == 0 (window already sits above nav bar, or hardware buttons), use compact 6dp margin to avoid black strip!
+            dpToPx(6)
+        }
     }
 
     private fun getStandardContentHeight(): Int {
