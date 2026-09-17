@@ -508,7 +508,7 @@ class CustomKeyboardView @JvmOverloads constructor(
         }
 
         val rowMarginB = (3.0f * context.resources.displayMetrics.density).toInt()
-        val defaultBottomPad = maxOf(getNavigationBarHeight(), dpToPx(6))
+        val defaultBottomPad = getCalculatedBottomPadding()
         val targetContentHeight = getStandardContentHeight()
 
         rowsLayout.setPadding(dpToPx(8), dpToPx(3), dpToPx(8), defaultBottomPad)
@@ -1235,13 +1235,12 @@ class CustomKeyboardView @JvmOverloads constructor(
 
     private fun getNavigationBarHeight(): Int {
         val resourceId = context.resources.getIdentifier("navigation_bar_height", "dimen", "android")
-        val navH = if (resourceId > 0) context.resources.getDimensionPixelSize(resourceId) else 0
-        return minOf(navH, dpToPx(20))
+        return if (resourceId > 0) context.resources.getDimensionPixelSize(resourceId) else 0
     }
 
     private fun getCalculatedBottomPadding(): Int {
         val navH = getNavigationBarHeight()
-        return maxOf(navH, dpToPx(6))
+        return if (navH > 0) navH else dpToPx(12)
     }
 
     private fun getStandardContentHeight(): Int {

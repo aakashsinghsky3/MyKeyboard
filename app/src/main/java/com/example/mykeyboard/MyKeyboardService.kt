@@ -91,30 +91,47 @@ class MyKeyboardService : InputMethodService(),
         return s.any { Character.isSurrogate(it) || it.code in 0x2000..0x3300 || it.code in 0x1F000..0x1FAFF }
     }
 
+    private val uiHandler = android.os.Handler(android.os.Looper.getMainLooper())
+    private var pendingPredictionRunnable: Runnable? = null
+
     override fun onTextKey(text: String) {
         val ic = currentInputConnection ?: return
+
+        val isSingleChar = text.length == 1
+        val isEmoji = isEmojiOrSymbol(text)
+
+        if (isSingleChar) {
+            // Fast Path: Commit letter instantly without any blocking snapshot or IPC delays
+            ic.commitText(text, 1)
+
+            // Post prediction & caps update asynchronously to keep UI thread 100% responsive
+            pendingPredictionRunnable?.let { uiHandler.removeCallbacks(it) }
+            pendingPredictionRunnable = Runnable {
+                checkAutoCaps()
+                updatePredictions()
+            }
+            uiHandler.post(pendingPredictionRunnable!!)
+            return
+        }
+
+        // Suggestion / Word Commit Path
         recordCurrentSnapshot()
 
-        // If committing a suggestion with a trailing space, learn the word
         val trimmed = text.trim()
-        if (trimmed.isNotEmpty() && !trimmed.contains(" ") && !isEmojiOrSymbol(text)) {
+        if (trimmed.isNotEmpty() && !trimmed.contains(" ") && !isEmoji) {
             predictionEngine.learnWord(trimmed)
         }
 
-        // Replace partial prefix if committing a suggestion word
         val textBefore = ic.getTextBeforeCursor(20, 0)?.toString() ?: ""
         val lastWord = textBefore.split(Regex("[^\\p{L}\\p{N}']")).lastOrNull() ?: ""
 
-        if (!isEmojiOrSymbol(text) && text.startsWith(lastWord, ignoreCase = true) && lastWord.isNotEmpty() && text.length > lastWord.length) {
+        if (!isEmoji && text.startsWith(lastWord, ignoreCase = true) && lastWord.isNotEmpty() && text.length > lastWord.length) {
             ic.deleteSurroundingText(lastWord.length, 0)
         }
 
-        // Do not add trailing space for single characters or emojis
-        val isSingleChar = text.length == 1
-        val isEmoji = isEmojiOrSymbol(text)
-        val toCommit = if (isSingleChar || isEmoji || text.endsWith(" ")) text else "$text "
-
+        val toCommit = if (isEmoji || text.endsWith(" ")) text else "$text "
         ic.commitText(toCommit, 1)
+
         checkAutoCaps()
         updatePredictions()
         recordCurrentSnapshot()

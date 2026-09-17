@@ -22,8 +22,8 @@ android {
         applicationId = "com.aakashworkcontact.keyboard"
         minSdk = 24
         targetSdk = 37
-        versionCode = 135
-        versionName = "13.5"
+        versionCode = 136
+        versionName = "13.6"
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
     }
