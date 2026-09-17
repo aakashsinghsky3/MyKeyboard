@@ -92,19 +92,16 @@ class MyKeyboardService : InputMethodService(),
     }
 
     private val uiHandler = android.os.Handler(android.os.Looper.getMainLooper())
+    private val predictionExecutor = java.util.concurrent.Executors.newSingleThreadExecutor()
     private var pendingPredictionRunnable: Runnable? = null
 
     override fun onTextKey(text: String) {
         val ic = currentInputConnection ?: return
 
-        val isSingleChar = text.length == 1
-        val isEmoji = isEmojiOrSymbol(text)
-
-        if (isSingleChar) {
-            // Fast Path: Commit letter instantly without any blocking snapshot or IPC delays
+        // Fast Path: Direct key from keyboard layout (does not end with space)
+        if (!text.endsWith(" ")) {
             ic.commitText(text, 1)
 
-            // Post prediction & caps update asynchronously to keep UI thread 100% responsive
             pendingPredictionRunnable?.let { uiHandler.removeCallbacks(it) }
             pendingPredictionRunnable = Runnable {
                 checkAutoCaps()
@@ -114,12 +111,15 @@ class MyKeyboardService : InputMethodService(),
             return
         }
 
-        // Suggestion / Word Commit Path
+        // Suggestion Chip Commit Path
         recordCurrentSnapshot()
 
+        val isEmoji = isEmojiOrSymbol(text)
         val trimmed = text.trim()
         if (trimmed.isNotEmpty() && !trimmed.contains(" ") && !isEmoji) {
-            predictionEngine.learnWord(trimmed)
+            predictionExecutor.execute {
+                predictionEngine.learnWord(trimmed)
+            }
         }
 
         val textBefore = ic.getTextBeforeCursor(20, 0)?.toString() ?: ""
@@ -129,8 +129,7 @@ class MyKeyboardService : InputMethodService(),
             ic.deleteSurroundingText(lastWord.length, 0)
         }
 
-        val toCommit = if (isEmoji || text.endsWith(" ")) text else "$text "
-        ic.commitText(toCommit, 1)
+        ic.commitText(text, 1)
 
         checkAutoCaps()
         updatePredictions()
@@ -258,8 +257,6 @@ class MyKeyboardService : InputMethodService(),
 
     override fun onSpace() {
         val ic = currentInputConnection ?: return
-        recordCurrentSnapshot()
-
         val now = System.currentTimeMillis()
         val textBefore = ic.getTextBeforeCursor(30, 0)?.toString() ?: ""
 
@@ -271,25 +268,27 @@ class MyKeyboardService : InputMethodService(),
                 lastSpaceTime = 0L
                 checkAutoCaps()
                 updatePredictions()
-                recordCurrentSnapshot()
                 return
             }
         }
 
-        // 2. Learn typed word on space
+        // 2. Commit space instantly
+        ic.commitText(" ", 1)
+        lastSpaceTime = now
+
+        // 3. Learn typed word in background thread so typing is never blocked
         if (!textBefore.endsWith(" ")) {
             val allWords = textBefore.trim().split(Regex("[^\\p{L}\\p{N}']")).filter { it.isNotEmpty() }
             val lastWord = allWords.lastOrNull() ?: ""
             if (lastWord.isNotEmpty()) {
-                predictionEngine.learnWord(lastWord)
+                predictionExecutor.execute {
+                    predictionEngine.learnWord(lastWord)
+                }
             }
         }
 
-        ic.commitText(" ", 1)
-        lastSpaceTime = now
         checkAutoCaps()
         updatePredictions()
-        recordCurrentSnapshot()
     }
 
     override fun onEnter(actionId: Int) {
@@ -404,8 +403,15 @@ class MyKeyboardService : InputMethodService(),
 
         val prefix = if (isAfterSpace) "" else (allWords.lastOrNull() ?: "")
         val prevWords = if (isAfterSpace) allWords else allWords.dropLast(1)
+        val lang = preferences.currentLanguage
+        val autoCorrectMode = preferences.autoCorrectMode
 
-        keyboardView?.updatePredictions(prefix, prevWords)
+        predictionExecutor.execute {
+            val result = predictionEngine.getSuggestions(prefix, prevWords, autoCorrectMode, lang)
+            uiHandler.post {
+                keyboardView?.setSuggestionsResult(result, prefix)
+            }
+        }
     }
 
     // ---------------------------------------------------------------------------------------------

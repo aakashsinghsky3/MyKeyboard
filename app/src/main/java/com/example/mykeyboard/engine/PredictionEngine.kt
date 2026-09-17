@@ -346,12 +346,10 @@ class PredictionEngine(context: Context) {
             }
         }
 
-        // Priority 3: Full Asset Dictionary Fallback scan
-        assetDictionary.forEach { (word, freq) ->
-            if (word.startsWith(cleanPrefix) && !candidateScores.containsKey(word)) {
-                val bonus = if (word == cleanPrefix) 50_000_000L else 0L
-                candidateScores[word] = maxOf(candidateScores[word] ?: 0L, freq.toLong() + bonus)
-            }
+        // Priority 3: Exact word match from asset dictionary if present
+        val exactFreq = assetDictionary[cleanPrefix]
+        if (exactFreq != null && !candidateScores.containsKey(cleanPrefix)) {
+            candidateScores[cleanPrefix] = 50_000_000L + exactFreq
         }
 
         // Priority 4: COMMON_DICTIONARY Guarantee
@@ -369,12 +367,13 @@ class PredictionEngine(context: Context) {
             .map { it.key }
             .toMutableList()
 
-        // 3. If word is typed with typo and not in dictionary, find closest typo correction
+        // 3. Fast typo correction on candidate pool (not full 1.4M scan)
         if (autoCorrectMatch == null && cleanPrefix.length >= 3 && !assetDictionary.containsKey(cleanPrefix) && !learnedWords.containsKey(cleanPrefix)) {
-            val closestCorrection = assetDictionary.entries
-                .filter { (w, _) -> levenshteinDistance(cleanPrefix, w) <= 2 && abs(cleanPrefix.length - w.length) <= 2 }
+            val typoCandidates = prefixIndex[cleanPrefix.take(1)] ?: emptyList()
+            val closestCorrection = typoCandidates
+                .filter { (w, _) -> abs(cleanPrefix.length - w.length) <= 2 && levenshteinDistance(cleanPrefix, w) <= 2 }
                 .maxByOrNull { (w, freq) -> freq - (levenshteinDistance(cleanPrefix, w) * 10000) }
-                ?.key
+                ?.first
 
             if (closestCorrection != null && closestCorrection != cleanPrefix) {
                 autoCorrectMatch = closestCorrection

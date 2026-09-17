@@ -261,9 +261,8 @@ class CustomKeyboardView @JvmOverloads constructor(
 
     private var activeRephraseRawInput: String? = null
 
-    fun updatePredictions(prefix: String, previousWords: List<String>) {
+    fun setSuggestionsResult(result: SuggestionResult, prefix: String) {
         activeRephraseRawInput = null
-        val result = predictionEngine.getSuggestions(prefix, previousWords, preferences.autoCorrectMode, preferences.currentLanguage)
         currentSuggestionResult = result
 
         val hasLeft = !result.left.isNullOrEmpty()
@@ -304,6 +303,11 @@ class CustomKeyboardView @JvmOverloads constructor(
 
         // Right Candidate
         candidateRightTv.text = result.right ?: ""
+    }
+
+    fun updatePredictions(prefix: String, previousWords: List<String>) {
+        val result = predictionEngine.getSuggestions(prefix, previousWords, preferences.autoCorrectMode, preferences.currentLanguage)
+        setSuggestionsResult(result, prefix)
     }
 
     fun showProfessionalSuggestions(rawSentence: String, options: List<String>) {
@@ -753,7 +757,7 @@ class CustomKeyboardView @JvmOverloads constructor(
     // ---------------------------------------------------------------------------------------------
     private fun attachTouchListener(view: View, key: KeyModel) {
         var downX = 0f
-        var isCursorSliding = false
+        var cursorMoved = false
         var lastCursorMoveX = 0f
         var isLongPressHandled = false
         val longPressRunnable = Runnable {
@@ -783,7 +787,7 @@ class CustomKeyboardView @JvmOverloads constructor(
                 MotionEvent.ACTION_DOWN -> {
                     downX = event.rawX
                     lastCursorMoveX = event.rawX
-                    isCursorSliding = false
+                    cursorMoved = false
                     isLongPressHandled = false
 
                     performHapticFeedback()
@@ -804,7 +808,7 @@ class CustomKeyboardView @JvmOverloads constructor(
                         handler.postDelayed(backspaceRepeatRunnable, 350)
                     } else if (key.type == KeyType.SPACE) {
                         spaceLongPressRunnable = Runnable {
-                            if (!isCursorSliding && !isLongPressHandled) {
+                            if (!cursorMoved && !isLongPressHandled) {
                                 isLongPressHandled = true
                                 performHapticFeedback()
                                 showLanguageSelectionDialog()
@@ -818,8 +822,7 @@ class CustomKeyboardView @JvmOverloads constructor(
                 MotionEvent.ACTION_MOVE -> {
                     val dx = event.rawX - downX
 
-                    if (key.type == KeyType.SPACE && abs(dx) > dpToPx(12)) {
-                        isCursorSliding = true
+                    if (key.type == KeyType.SPACE && abs(dx) > dpToPx(24)) {
                         spaceLongPressRunnable?.let { handler.removeCallbacks(it) }
                         val diff = event.rawX - lastCursorMoveX
                         val step = dpToPx(14)
@@ -827,6 +830,7 @@ class CustomKeyboardView @JvmOverloads constructor(
                             val offset = if (diff > 0) 1 else -1
                             actionListener?.onMoveCursor(offset)
                             performHapticFeedback()
+                            cursorMoved = true
                             lastCursorMoveX = event.rawX
                         }
                     }
@@ -853,9 +857,12 @@ class CustomKeyboardView @JvmOverloads constructor(
                                 actionListener?.onTextKey(accent)
                             }
                             dismissAccentsPopup()
-                        } else if (!isCursorSliding && !isLongPressHandled) {
-                            if (key.type != KeyType.CHARACTER && key.type != KeyType.COMMA && key.type != KeyType.PERIOD) {
-                                handleKeyClick(key)
+                        } else if (!cursorMoved && !isLongPressHandled) {
+                            when (key.type) {
+                                KeyType.SPACE, KeyType.SHIFT, KeyType.MODE_CHANGE, KeyType.EMOJI, KeyType.ENTER -> {
+                                    handleKeyClick(key)
+                                }
+                                else -> {}
                             }
                         }
                     } else {
