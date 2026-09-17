@@ -128,7 +128,26 @@ class CustomKeyboardView @JvmOverloads constructor(
         context.getSystemService(Context.VIBRATOR_SERVICE) as? Vibrator
     }
 
+    // Shift & letter views tracking for instantaneous in-place Shift toggle (no view rebuild)
+    private val letterKeyViews = mutableListOf<Pair<TextView, KeyModel>>()
+    private var shiftKeyIcon: ImageView? = null
+    private var shiftKeyBackground: GradientDrawable? = null
+
+    // Long press & multi-touch management
+    private var activeLongPressRunnable: Runnable? = null
+    private var activeLongPressKey: KeyModel? = null
+    private var isSpaceHeld = false
+    private var isSpaceCommitted = false
+
+    private fun cancelPendingLongPress() {
+        activeLongPressRunnable?.let { handler.removeCallbacks(it) }
+        activeLongPressRunnable = null
+        activeLongPressKey = null
+        dismissPopup()
+    }
+
     init {
+        isMotionEventSplittingEnabled = true
         orientation = VERTICAL
         gravity = Gravity.CENTER_HORIZONTAL
         layoutParams = LayoutParams(LayoutParams.MATCH_PARENT, LayoutParams.WRAP_CONTENT)
@@ -159,11 +178,13 @@ class CustomKeyboardView @JvmOverloads constructor(
 
         // 2. Keyboard Views Container
         keyboardContainer = FrameLayout(context).apply {
+            isMotionEventSplittingEnabled = true
             layoutParams = LayoutParams(LayoutParams.MATCH_PARENT, LayoutParams.WRAP_CONTENT)
         }
 
         val initialBottomPad = dpToPx(6)
         rowsLayout = LinearLayout(context).apply {
+            isMotionEventSplittingEnabled = true
             orientation = VERTICAL
             gravity = Gravity.CENTER_HORIZONTAL
             layoutParams = FrameLayout.LayoutParams(FrameLayout.LayoutParams.MATCH_PARENT, FrameLayout.LayoutParams.WRAP_CONTENT)
@@ -333,7 +354,7 @@ class CustomKeyboardView @JvmOverloads constructor(
         if (this.shiftState != state) {
             this.shiftState = state
             if (keyboardMode == KeyboardMode.ALPHA) {
-                renderKeyboardLayout()
+                updateKeyLabelsForShift()
             }
         }
     }
@@ -496,11 +517,31 @@ class CustomKeyboardView @JvmOverloads constructor(
         }
     }
 
+    private fun updateKeyLabelsForShift() {
+        val isShifted = shiftState != ShiftState.UNSHIFTED
+        letterKeyViews.forEach { (tv, key) ->
+            tv.text = if (isShifted) key.shiftText else key.primaryText
+        }
+        shiftKeyIcon?.let { icon ->
+            val res = if (shiftState == ShiftState.CAPS_LOCKED) R.drawable.ic_capslock else R.drawable.ic_shift
+            icon.setImageResource(res)
+            val tint = if (isShifted) currentTheme.actionTextColor else currentTheme.textColorPrimary
+            icon.setColorFilter(tint)
+        }
+        shiftKeyBackground?.let { bg ->
+            val color = if (isShifted) currentTheme.keyActionColor else currentTheme.keySpecialColor
+            bg.setColor(color)
+        }
+    }
+
     // ---------------------------------------------------------------------------------------------
     // Keyboard Layout Rendering
     // ---------------------------------------------------------------------------------------------
     private fun renderKeyboardLayout() {
         rowsLayout.removeAllViews()
+        letterKeyViews.clear()
+        shiftKeyIcon = null
+        shiftKeyBackground = null
 
         val currentLang = KeyboardLanguage.fromId(preferences.currentLanguage)
         val rows = when (keyboardMode) {
@@ -531,6 +572,7 @@ class CustomKeyboardView @JvmOverloads constructor(
 
                 val totalWeight = keyRow.sumOf { it.weight.toDouble() }.toFloat()
                 val rowLayout = LinearLayout(context).apply {
+                    isMotionEventSplittingEnabled = true
                     orientation = HORIZONTAL
                     gravity = Gravity.CENTER
                     weightSum = totalWeight
@@ -558,6 +600,7 @@ class CustomKeyboardView @JvmOverloads constructor(
 
         val keyMarginH = (3.0f * context.resources.displayMetrics.density).toInt()
         val keyLayout = FrameLayout(context).apply {
+            isMotionEventSplittingEnabled = true
             layoutParams = LayoutParams(0, LayoutParams.MATCH_PARENT, key.weight).apply {
                 marginStart = keyMarginH
                 marginEnd = keyMarginH
@@ -600,6 +643,8 @@ class CustomKeyboardView @JvmOverloads constructor(
                     setPadding(pad, pad, pad, pad)
                     layoutParams = FrameLayout.LayoutParams(FrameLayout.LayoutParams.MATCH_PARENT, FrameLayout.LayoutParams.MATCH_PARENT)
                 }
+                shiftKeyIcon = shiftIcon
+                shiftKeyBackground = bgDrawable
                 keyLayout.addView(shiftIcon)
             }
             KeyType.BACKSPACE -> {
@@ -718,6 +763,9 @@ class CustomKeyboardView @JvmOverloads constructor(
                         setTextColor(currentTheme.textColorPrimary)
                         layoutParams = FrameLayout.LayoutParams(FrameLayout.LayoutParams.MATCH_PARENT, FrameLayout.LayoutParams.MATCH_PARENT)
                     }
+                    if (key.type == KeyType.CHARACTER) {
+                        letterKeyViews.add(Pair(mainTv, key))
+                    }
                     keyLayout.addView(mainTv)
 
                     if (hasAlt) {
@@ -760,31 +808,19 @@ class CustomKeyboardView @JvmOverloads constructor(
         var cursorMoved = false
         var lastCursorMoveX = 0f
         var isLongPressHandled = false
-        val longPressRunnable = Runnable {
-            if (key.popupChars.isNotEmpty()) {
-                isLongPressHandled = true
-                dismissPopup()
-                if (key.popupChars.size > 1) {
-                    showAccentsPopup(view, key.popupChars)
-                } else {
-                    performHapticFeedback()
-                    performAudioFeedback()
-                    actionListener?.onBackspace()
-                    actionListener?.onTextKey(key.popupChars[0])
-                }
-            } else if (key.altText.isNotEmpty()) {
-                isLongPressHandled = true
-                dismissPopup()
-                performHapticFeedback()
-                performAudioFeedback()
-                actionListener?.onBackspace()
-                actionListener?.onTextKey(key.altText)
-            }
-        }
 
         view.setOnTouchListener { v, event ->
             when (event.actionMasked) {
-                MotionEvent.ACTION_DOWN -> {
+                MotionEvent.ACTION_DOWN, MotionEvent.ACTION_POINTER_DOWN -> {
+                    // 1. Immediately cancel any pending long press so it can NEVER retroactively delete characters!
+                    cancelPendingLongPress()
+
+                    // 2. Multi-touch space handling: if space is held down and another key touches down, commit space immediately!
+                    if (isSpaceHeld && !isSpaceCommitted && !cursorMoved && key.type != KeyType.SPACE) {
+                        isSpaceCommitted = true
+                        actionListener?.onSpace()
+                    }
+
                     downX = event.rawX
                     lastCursorMoveX = event.rawX
                     cursorMoved = false
@@ -795,18 +831,47 @@ class CustomKeyboardView @JvmOverloads constructor(
                     animateKeyPress(v, true)
 
                     if (key.type == KeyType.CHARACTER || key.type == KeyType.COMMA || key.type == KeyType.PERIOD) {
-                        // Instant 0ms key output on ACTION_DOWN so fast multi-touch typing NEVER misses a letter
+                        // Instant 0ms key output on touch-down so fast typing NEVER misses a letter
                         handleKeyClick(key)
                         if (preferences.isPopupEnabled) {
                             val text = if (shiftState != ShiftState.UNSHIFTED) key.shiftText else key.primaryText
                             showKeyPopup(v, text)
                         }
-                        handler.postDelayed(longPressRunnable, 350)
+
+                        // Schedule long press only if key has popups or altText
+                        if (key.popupChars.isNotEmpty() || key.altText.isNotEmpty()) {
+                            activeLongPressKey = key
+                            val lpr = Runnable {
+                                if (activeLongPressKey == key && !cursorMoved) {
+                                    isLongPressHandled = true
+                                    dismissPopup()
+                                    if (key.popupChars.isNotEmpty()) {
+                                        if (key.popupChars.size > 1) {
+                                            showAccentsPopup(view, key.popupChars)
+                                        } else {
+                                            performHapticFeedback()
+                                            performAudioFeedback()
+                                            actionListener?.onBackspace()
+                                            actionListener?.onTextKey(key.popupChars[0])
+                                        }
+                                    } else if (key.altText.isNotEmpty()) {
+                                        performHapticFeedback()
+                                        performAudioFeedback()
+                                        actionListener?.onBackspace()
+                                        actionListener?.onTextKey(key.altText)
+                                    }
+                                }
+                            }
+                            activeLongPressRunnable = lpr
+                            handler.postDelayed(lpr, 450)
+                        }
                     } else if (key.type == KeyType.BACKSPACE) {
                         isBackspaceHeld = true
                         actionListener?.onBackspace()
                         handler.postDelayed(backspaceRepeatRunnable, 350)
                     } else if (key.type == KeyType.SPACE) {
+                        isSpaceHeld = true
+                        isSpaceCommitted = false
                         spaceLongPressRunnable = Runnable {
                             if (!cursorMoved && !isLongPressHandled) {
                                 isLongPressHandled = true
@@ -814,7 +879,9 @@ class CustomKeyboardView @JvmOverloads constructor(
                                 showLanguageSelectionDialog()
                             }
                         }
-                        handler.postDelayed(spaceLongPressRunnable!!, 600)
+                        handler.postDelayed(spaceLongPressRunnable!!, 500)
+                    } else if (key.type == KeyType.SHIFT || key.type == KeyType.MODE_CHANGE || key.type == KeyType.EMOJI || key.type == KeyType.ENTER) {
+                        handleKeyClick(key)
                     }
                     true
                 }
@@ -841,15 +908,15 @@ class CustomKeyboardView @JvmOverloads constructor(
                     true
                 }
 
-                MotionEvent.ACTION_UP, MotionEvent.ACTION_CANCEL -> {
+                MotionEvent.ACTION_UP, MotionEvent.ACTION_POINTER_UP, MotionEvent.ACTION_CANCEL -> {
                     animateKeyPress(v, false)
-                    handler.removeCallbacks(longPressRunnable)
+                    cancelPendingLongPress()
                     handler.removeCallbacks(backspaceRepeatRunnable)
                     spaceLongPressRunnable?.let { handler.removeCallbacks(it) }
                     isBackspaceHeld = false
                     dismissPopup()
 
-                    if (event.actionMasked == MotionEvent.ACTION_UP) {
+                    if (event.actionMasked == MotionEvent.ACTION_UP || event.actionMasked == MotionEvent.ACTION_POINTER_UP) {
                         if (isLongPressHandled && accentsPopupWindow?.isShowing == true) {
                             if (activeAccentIndex in currentPopupChars.indices) {
                                 val accent = currentPopupChars[activeAccentIndex]
@@ -857,16 +924,17 @@ class CustomKeyboardView @JvmOverloads constructor(
                                 actionListener?.onTextKey(accent)
                             }
                             dismissAccentsPopup()
-                        } else if (!cursorMoved && !isLongPressHandled) {
-                            when (key.type) {
-                                KeyType.SPACE, KeyType.SHIFT, KeyType.MODE_CHANGE, KeyType.EMOJI, KeyType.ENTER -> {
-                                    handleKeyClick(key)
-                                }
-                                else -> {}
+                        } else if (key.type == KeyType.SPACE) {
+                            if (!isSpaceCommitted && !cursorMoved && !isLongPressHandled) {
+                                isSpaceCommitted = true
+                                actionListener?.onSpace()
                             }
                         }
                     } else {
                         dismissAccentsPopup()
+                    }
+                    if (key.type == KeyType.SPACE) {
+                        isSpaceHeld = false
                     }
                     true
                 }
@@ -882,7 +950,7 @@ class CustomKeyboardView @JvmOverloads constructor(
                 actionListener?.onTextKey(text)
                 if (shiftState == ShiftState.SHIFTED_ONCE) {
                     shiftState = ShiftState.UNSHIFTED
-                    handler.post { renderKeyboardLayout() }
+                    updateKeyLabelsForShift()
                 }
             }
             KeyType.SPACE -> {
@@ -900,7 +968,7 @@ class CustomKeyboardView @JvmOverloads constructor(
                     }
                 }
                 lastShiftPressTime = now
-                renderKeyboardLayout()
+                updateKeyLabelsForShift()
             }
             KeyType.MODE_CHANGE -> {
                 keyboardMode = when (key.primaryText) {
