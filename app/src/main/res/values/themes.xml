@@ -1,11 +1,34 @@
 <resources xmlns:tools="http://schemas.android.com/tools">
-    <!-- Base application theme. -->
+    <!-- Charcoal + amber Material 3 theme; colours flip via values-night/colors.xml -->
     <style name="Base.Theme.MyKeyboard" parent="Theme.Material3.DayNight.NoActionBar">
-        <item name="colorPrimary">@color/primary</item>
-        <item name="colorSecondary">@color/secondary</item>
-        <item name="android:statusBarColor">@color/background_dark</item>
-        <item name="android:navigationBarColor">@color/background_dark</item>
+        <item name="colorPrimary">@color/ui_primary</item>
+        <item name="colorOnPrimary">@color/ui_on_primary</item>
+        <item name="colorPrimaryContainer">@color/ui_primary_container</item>
+        <item name="colorOnPrimaryContainer">@color/ui_on_primary_container</item>
+        <item name="colorSecondary">@color/ui_accent_ink</item>
+        <item name="colorOnSecondary">@color/ui_surface</item>
+        <item name="colorSecondaryContainer">@color/ui_primary_container</item>
+        <item name="colorOnSecondaryContainer">@color/ui_on_primary_container</item>
+        <item name="colorTertiary">@color/brand_gold</item>
+        <item name="android:colorBackground">@color/ui_background</item>
+        <item name="colorSurface">@color/ui_surface</item>
+        <item name="colorOnSurface">@color/ui_on_surface</item>
+        <item name="colorSurfaceVariant">@color/ui_surface_variant</item>
+        <item name="colorOnSurfaceVariant">@color/ui_on_surface_variant</item>
+        <item name="colorSurfaceContainer">@color/ui_surface_variant</item>
+        <item name="colorSurfaceContainerHigh">@color/ui_surface_high</item>
+        <item name="colorOutline">@color/ui_outline</item>
+        <item name="colorOutlineVariant">@color/ui_outline</item>
+        <item name="colorError">@color/ui_danger</item>
+        <item name="android:windowBackground">@color/ui_background</item>
+        <item name="android:statusBarColor">@android:color/transparent</item>
+        <item name="android:navigationBarColor">@android:color/transparent</item>
     </style>
 
     <style name="Theme.MyKeyboard" parent="Base.Theme.MyKeyboard" />
+
+    <!-- Launch theme: shows the logo instantly while the settings screen inflates (pre-Android 12). -->
+    <style name="Theme.MyKeyboard.Starting" parent="Base.Theme.MyKeyboard">
+        <item name="android:windowBackground">@drawable/splash_background</item>
+    </style>
 </resources>

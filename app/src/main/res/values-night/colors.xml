@@ -1,0 +1,19 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- UI tokens: dark -->
+    <color name="ui_background">#FF0E0E0E</color>
+    <color name="ui_surface">#FF1A1A1A</color>
+    <color name="ui_surface_variant">#FF232323</color>
+    <color name="ui_surface_high">#FF2C2C2C</color>
+    <color name="ui_on_surface">#FFF5F5F5</color>
+    <color name="ui_on_surface_variant">#FFABA59E</color>
+    <color name="ui_outline">#FF2F2F2F</color>
+    <color name="ui_primary">#FFFFB020</color>
+    <color name="ui_on_primary">#FF151515</color>
+    <color name="ui_primary_container">#FF3A2A08</color>
+    <color name="ui_on_primary_container">#FFFFD98A</color>
+    <color name="ui_accent_ink">#FFFFC247</color>
+    <color name="ui_success">#FF7BD39A</color>
+    <color name="ui_danger">#FFF2B8B5</color>
+    <color name="ui_nav_bar">#FF151515</color>
+</resources>

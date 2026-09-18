@@ -38,8 +38,11 @@ class ClipboardView @JvmOverloads constructor(
 
     private var fixedTargetContentHeight: Int? = null
 
+    /** Space reserved for the navigation bar; the keyboard measures it and passes it in. */
+    private var systemBottomPad = dpToPx(6)
+
     init {
-        val initialBottomPad = getCalculatedBottomPadding()
+        val initialBottomPad = systemBottomPad
         orientation = VERTICAL
         val initialHeight = (fixedTargetContentHeight ?: dpToPx(200)) + initialBottomPad
         layoutParams = android.view.ViewGroup.LayoutParams(
@@ -47,25 +50,6 @@ class ClipboardView @JvmOverloads constructor(
             initialHeight
         )
         setPadding(dpToPx(8), dpToPx(6), dpToPx(8), initialBottomPad)
-
-        androidx.core.view.ViewCompat.setOnApplyWindowInsetsListener(this) { _, windowInsets ->
-            val navInsets = windowInsets.getInsets(androidx.core.view.WindowInsetsCompat.Type.navigationBars())
-            val finalBottom = maxOf(navInsets.bottom, getCalculatedBottomPadding())
-            val targetH = fixedTargetContentHeight ?: dpToPx(200)
-            val h = targetH + finalBottom
-            val lp = layoutParams
-            if (lp != null) {
-                lp.height = h
-                layoutParams = lp
-            } else {
-                layoutParams = android.view.ViewGroup.LayoutParams(
-                    android.view.ViewGroup.LayoutParams.MATCH_PARENT,
-                    h
-                )
-            }
-            setPadding(dpToPx(8), dpToPx(6), dpToPx(8), finalBottom)
-            windowInsets
-        }
 
         // 1. Header (Title, Clear Unpinned, Close)
         headerLayout = LinearLayout(context).apply {
@@ -97,9 +81,10 @@ class ClipboardView @JvmOverloads constructor(
         this.listener = listener
     }
 
-    fun updateFixedContentHeight(targetContentHeight: Int) {
+    fun updateFixedContentHeight(targetContentHeight: Int, bottomPad: Int = systemBottomPad) {
         this.fixedTargetContentHeight = targetContentHeight
-        val finalBottom = getCalculatedBottomPadding()
+        this.systemBottomPad = bottomPad
+        val finalBottom = bottomPad
         val totalH = targetContentHeight + finalBottom
         val lp = layoutParams ?: android.view.ViewGroup.LayoutParams(
             android.view.ViewGroup.LayoutParams.MATCH_PARENT,
@@ -112,7 +97,8 @@ class ClipboardView @JvmOverloads constructor(
 
     fun applyTheme(theme: KeyboardTheme) {
         this.currentTheme = theme
-        setBackgroundColor(theme.backgroundColor)
+        // The keyboard chassis (gradient / pattern / photo) is drawn by the parent.
+        setBackgroundColor(Color.TRANSPARENT)
         setupHeader()
         refreshClips()
     }
@@ -292,18 +278,6 @@ class ClipboardView @JvmOverloads constructor(
             hours < 24 -> "${hours}h ago"
             else -> "${days}d ago"
         }
-    }
-
-    private fun getNavigationBarHeight(): Int {
-        val resourceId = context.resources.getIdentifier("navigation_bar_height", "dimen", "android")
-        return if (resourceId > 0) context.resources.getDimensionPixelSize(resourceId) else 0
-    }
-
-    private fun getCalculatedBottomPadding(): Int {
-        val isTablet = context.resources.configuration.smallestScreenWidthDp >= 600
-        val sysNavHeight = getNavigationBarHeight()
-        val minPad = if (isTablet) dpToPx(56) else dpToPx(48)
-        return maxOf(sysNavHeight, minPad) + dpToPx(8)
     }
 
     private fun dpToPx(dp: Int): Int {

@@ -26,6 +26,8 @@ class PredictionEngine(context: Context) {
                 for (fileName in dictFiles) {
                     try {
                         val gzipStream = java.util.zip.GZIPInputStream(context.assets.open(fileName))
+                        val isHindi = fileName.contains("hindi")
+                        val minFreqForPrefix = if (isHindi) 800 else 1_000_000
                         gzipStream.bufferedReader().useLines { lines ->
                             lines.forEach { line ->
                                 val parts = line.trim().split("\\s+".toRegex())
@@ -35,12 +37,11 @@ class PredictionEngine(context: Context) {
                                     if (word.isNotEmpty()) {
                                         tempMap[word] = freq
 
-                                        val maxLen = minOf(4, word.length)
-                                        for (len in 1..maxLen) {
-                                            val prefix = word.substring(0, len)
-                                            val list = tempPrefixMap.getOrPut(prefix) { mutableListOf() }
-                                            if (list.size < 500) {
-                                                list.add(Pair(word, freq))
+                                        if (freq >= minFreqForPrefix) {
+                                            val maxLen = minOf(4, word.length)
+                                            for (len in 1..maxLen) {
+                                                val prefix = word.substring(0, len)
+                                                tempPrefixMap.getOrPut(prefix) { mutableListOf() }.add(Pair(word, freq))
                                             }
                                         }
                                     }
@@ -49,9 +50,22 @@ class PredictionEngine(context: Context) {
                         }
                     } catch (_: Exception) {}
                 }
+
+                // Also ensure COMMON_DICTIONARY words are guaranteed in prefixIndex with high frequency
+                COMMON_DICTIONARY.forEach { word ->
+                    val clean = word.lowercase()
+                    val freq = 500_000_000
+                    tempMap.putIfAbsent(clean, freq)
+                    val maxLen = minOf(4, clean.length)
+                    for (len in 1..maxLen) {
+                        val prefix = clean.substring(0, len)
+                        tempPrefixMap.getOrPut(prefix) { mutableListOf() }.add(Pair(clean, freq))
+                    }
+                }
+
                 assetDictionary.putAll(tempMap)
                 tempPrefixMap.forEach { (k, v) ->
-                    prefixIndex[k] = v.sortedByDescending { it.second }.toMutableList()
+                    prefixIndex[k] = v.sortedByDescending { it.second }.take(80).toMutableList()
                 }
             } catch (_: Exception) {}
         }.start()
@@ -321,8 +335,10 @@ class PredictionEngine(context: Context) {
 
         val cleanPrefix = prefix.lowercase()
 
-        // 1. Check direct typo engine match
-        var autoCorrectMatch = AutoCorrectEngine.getCorrection(prefix, autoCorrectMode)
+        // 1. Check typo engine match with dictionary validation (proximity, deletion, insertion, transposition)
+        var autoCorrectMatch = AutoCorrectEngine.getCorrection(prefix, autoCorrectMode) { word ->
+            assetDictionary[word] ?: learnedWords[word]?.times(1000)
+        }
 
         // 2. Collect candidate matches with robust scoring
         val candidateScores = mutableMapOf<String, Long>()
@@ -367,7 +383,7 @@ class PredictionEngine(context: Context) {
             .map { it.key }
             .toMutableList()
 
-        // 3. Fast typo correction on candidate pool (not full 1.4M scan)
+        // 3. Fast typo correction fallback on candidate pool if still null
         if (autoCorrectMatch == null && cleanPrefix.length >= 3 && !assetDictionary.containsKey(cleanPrefix) && !learnedWords.containsKey(cleanPrefix)) {
             val typoCandidates = prefixIndex[cleanPrefix.take(1)] ?: emptyList()
             val closestCorrection = typoCandidates
@@ -380,25 +396,27 @@ class PredictionEngine(context: Context) {
             }
         }
 
-        val center = autoCorrectMatch ?: allMatches.firstOrNull() ?: prefix
-        val otherMatches = allMatches.filter { it.lowercase() != center.lowercase() }.toMutableList()
+        val isAuto = autoCorrectMatch != null && autoCorrectMatch.lowercase() != cleanPrefix
+        val center = if (isAuto) autoCorrectMatch!! else allMatches.firstOrNull() ?: prefix
+        val otherMatches = allMatches.filter { it.lowercase() != center.lowercase() && it.lowercase() != cleanPrefix }.toMutableList()
 
-        var left: String? = if (autoCorrectMatch != null) prefix else if (prefix.lowercase() != center.lowercase()) prefix else otherMatches.removeFirstOrNull()
-        var right: String? = otherMatches.removeFirstOrNull()
-
-        if (left == null) {
-            left = otherMatches.removeFirstOrNull() ?: prefix
+        val left: String? = if (isAuto) {
+            prefix // literal typed text so user can always tap to keep their exact typing
+        } else {
+            otherMatches.removeFirstOrNull()
         }
 
-        if (right == null) {
-            right = otherMatches.removeFirstOrNull() ?: COMMON_DICTIONARY.firstOrNull { it.lowercase() != center.lowercase() && it.lowercase() != (left?.lowercase() ?: "") }
+        val right: String? = otherMatches.removeFirstOrNull() ?: if (isAuto) {
+            otherMatches.removeFirstOrNull()
+        } else {
+            COMMON_DICTIONARY.firstOrNull { it.lowercase() != center.lowercase() && it.lowercase() != (left?.lowercase() ?: "") }
         }
 
         return SuggestionResult(
             left = left?.let { matchCasing(prefix, it) },
             center = matchCasing(prefix, center),
             right = right?.let { matchCasing(prefix, it) },
-            isAutoCorrect = autoCorrectMatch != null
+            isAutoCorrect = isAuto
         )
     }
 

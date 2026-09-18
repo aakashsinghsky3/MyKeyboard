@@ -2,223 +2,251 @@ package com.example.mykeyboard
 
 import android.content.Context
 import android.content.Intent
+import android.content.SharedPreferences
+import android.content.res.ColorStateList
 import android.graphics.Bitmap
 import android.graphics.BitmapFactory
-import android.graphics.Color
-import android.graphics.drawable.GradientDrawable
 import android.net.Uri
 import android.os.Bundle
 import android.provider.Settings
 import android.view.Gravity
 import android.view.View
+import android.view.ViewGroup
 import android.view.inputmethod.InputMethodManager
-import android.widget.EditText
+import android.widget.FrameLayout
+import android.widget.ImageView
 import android.widget.LinearLayout
-import android.widget.SeekBar
-import android.widget.TextView
 import android.widget.Toast
+import androidx.activity.OnBackPressedCallback
 import androidx.activity.enableEdgeToEdge
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.appcompat.app.AppCompatActivity
-import androidx.core.content.ContextCompat
+import androidx.appcompat.app.AppCompatDelegate
 import androidx.core.view.ViewCompat
 import androidx.core.view.WindowInsetsCompat
-import com.example.mykeyboard.engine.AutoCorrectMode
-import com.example.mykeyboard.model.KeyboardTheme
+import com.example.mykeyboard.settings.AdvancedPage
+import com.example.mykeyboard.settings.AppearancePage
+import com.example.mykeyboard.settings.HomePage
+import com.example.mykeyboard.settings.KeyboardPage
+import com.example.mykeyboard.settings.LanguagePage
+import com.example.mykeyboard.settings.SettingsHost
+import com.example.mykeyboard.settings.SettingsPage
+import com.example.mykeyboard.settings.SettingsTab
+import com.example.mykeyboard.settings.SettingsUi
 import com.example.mykeyboard.utils.KeyboardPreferences
-import com.google.android.material.materialswitch.MaterialSwitch
+import com.google.android.material.bottomnavigation.BottomNavigationView
+import com.google.android.material.navigation.NavigationBarView
 import java.io.File
 import java.io.FileOutputStream
 
-class MainActivity : AppCompatActivity() {
+/**
+ * Settings app shell: brand top bar, five destinations in a Material 3 navigation bar,
+ * fade-through page transitions. Pages are built lazily and kept alive while the activity lives.
+ */
+class MainActivity : AppCompatActivity(), SettingsHost, SharedPreferences.OnSharedPreferenceChangeListener {
 
-    private lateinit var preferences: KeyboardPreferences
+    override lateinit var prefs: KeyboardPreferences
+    override lateinit var ui: SettingsUi
 
-    private lateinit var tvStep1Status: TextView
-    private lateinit var tvStep2Status: TextView
-    private lateinit var etTestTyping: EditText
-    private lateinit var btnClearTest: TextView
-    private lateinit var layoutThemesContainer: LinearLayout
-
-    // Custom Background Views
-    private lateinit var btnChooseImage: TextView
-    private lateinit var btnRemoveImage: TextView
-    private lateinit var tvOpacityValue: TextView
-    private lateinit var seekbarOpacity: SeekBar
-
-    // Auto-Correction Views
-    private lateinit var btnAutocorrectOff: TextView
-    private lateinit var btnAutocorrectConservative: TextView
-    private lateinit var btnAutocorrectAggressive: TextView
-
-    // Preferences Switches
-    private lateinit var switchClipboard: MaterialSwitch
-    private lateinit var switchNumberRow: MaterialSwitch
-    private lateinit var switchKeyPopup: MaterialSwitch
-    private lateinit var switchHaptic: MaterialSwitch
-    private lateinit var switchSound: MaterialSwitch
-    private lateinit var switchAutoCaps: MaterialSwitch
-
-    // Height Adjuster
-    private lateinit var btnHeightCompact: TextView
-    private lateinit var btnHeightNormal: TextView
-    private lateinit var btnHeightTall: TextView
+    private lateinit var content: FrameLayout
+    private lateinit var navBar: BottomNavigationView
+    private val pages = HashMap<SettingsTab, SettingsPage>()
+    private var currentTab = SettingsTab.HOME
 
     private val pickImageLauncher = registerForActivityResult(ActivityResultContracts.GetContent()) { uri: Uri? ->
-        if (uri != null) {
-            saveCustomBackground(uri)
-        }
+        if (uri != null) saveCustomBackground(uri)
     }
 
     override fun onCreate(savedInstanceState: Bundle?) {
+        prefs = KeyboardPreferences(this)
+        // Leave the launch (splash) theme before inflating anything.
+        setTheme(R.style.Theme_MyKeyboard)
         super.onCreate(savedInstanceState)
         enableEdgeToEdge()
         setContentView(R.layout.activity_main)
+        ui = SettingsUi(this)
 
-        preferences = KeyboardPreferences(this)
+        currentTab = savedInstanceState?.getString(STATE_TAB)?.let { name -> SettingsTab.values().firstOrNull { it.name == name } } ?: SettingsTab.HOME
 
-        ViewCompat.setOnApplyWindowInsetsListener(findViewById(R.id.main)) { view, insets ->
-            val systemBars = insets.getInsets(WindowInsetsCompat.Type.systemBars())
-            view.setPadding(
-                systemBars.left,
-                systemBars.top,
-                systemBars.right,
-                systemBars.bottom
-            )
+        val root = findViewById<FrameLayout>(R.id.main)
+        val shell = LinearLayout(this).apply { orientation = LinearLayout.VERTICAL }
+        val topBar = buildTopBar()
+        shell.addView(topBar, LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT))
+        content = FrameLayout(this)
+        shell.addView(content, LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, 0, 1f))
+        navBar = buildNavBar()
+        shell.addView(navBar, LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT))
+        root.addView(shell, FrameLayout.LayoutParams(FrameLayout.LayoutParams.MATCH_PARENT, FrameLayout.LayoutParams.MATCH_PARENT))
+
+        ViewCompat.setOnApplyWindowInsetsListener(root) { _, insets ->
+            val bars = insets.getInsets(WindowInsetsCompat.Type.systemBars())
+            topBar.setPadding(bars.left + ui.dp(20), bars.top + ui.dp(10), bars.right + ui.dp(20), ui.dp(6))
+            navBar.setPadding(bars.left, 0, bars.right, bars.bottom)
+            content.setPadding(bars.left, 0, bars.right, 0)
             insets
         }
 
-        initViews()
-        setupWizard()
-        setupCustomBackground()
-        setupAutoCorrectModes()
-        setupThemePicker()
-        setupPreferences()
-        setupHeightAdjuster()
+        onBackPressedDispatcher.addCallback(this, object : OnBackPressedCallback(true) {
+            override fun handleOnBackPressed() {
+                if (currentTab != SettingsTab.HOME) navigateTo(SettingsTab.HOME) else finish()
+            }
+        })
+
+        navBar.selectedItemId = navId(currentTab)
+        showTab(currentTab, animate = false)
+        prefs.registerListener(this)
+    }
+
+    override fun onDestroy() {
+        prefs.unregisterListener(this)
+        super.onDestroy()
+    }
+
+    override fun onSaveInstanceState(outState: Bundle) {
+        super.onSaveInstanceState(outState)
+        outState.putString(STATE_TAB, currentTab.name)
     }
 
     override fun onResume() {
         super.onResume()
-        updateWizardStatus()
+        pages[currentTab]?.onShown()
     }
 
     override fun onWindowFocusChanged(hasFocus: Boolean) {
         super.onWindowFocusChanged(hasFocus)
-        if (hasFocus) {
-            updateWizardStatus()
+        // The input-method picker is a dialog: refresh setup status when it closes.
+        if (hasFocus && currentTab == SettingsTab.HOME) pages[currentTab]?.onShown()
+    }
+
+    override fun onSharedPreferenceChanged(sharedPreferences: SharedPreferences?, key: String?) {
+        pages.values.forEach { it.onPreferenceChanged(key) }
+    }
+
+    // ---------------------------------------------------------------------------------------
+    // Chrome
+    // ---------------------------------------------------------------------------------------
+
+    private fun buildTopBar(): View = LinearLayout(this).apply {
+        orientation = LinearLayout.HORIZONTAL
+        gravity = Gravity.CENTER_VERTICAL
+        setBackgroundColor(ui.background)
+        addView(ImageView(context).apply {
+            setImageResource(R.drawable.ic_brand_logo)
+            contentDescription = null
+        }, LinearLayout.LayoutParams(ui.dp(34), ui.dp(34)).apply { marginEnd = ui.dp(12) })
+        addView(ui.text("Keyboard", SettingsUi.Type.TITLE))
+    }
+
+    private fun buildNavBar(): BottomNavigationView = BottomNavigationView(this).apply {
+        SettingsTab.values().forEach { tab ->
+            menu.add(0, navId(tab), tab.ordinal, tab.title).setIcon(tab.iconRes)
+        }
+        labelVisibilityMode = NavigationBarView.LABEL_VISIBILITY_LABELED
+        setBackgroundColor(ui.surface)
+        val states = arrayOf(intArrayOf(android.R.attr.state_checked), intArrayOf())
+        itemIconTintList = ColorStateList(states, intArrayOf(ui.onPrimaryContainer, ui.onSurfaceVariant))
+        itemTextColor = ColorStateList(states, intArrayOf(ui.onSurface, ui.onSurfaceVariant))
+        itemActiveIndicatorColor = ColorStateList.valueOf(ui.primaryContainer)
+        setOnItemSelectedListener { item ->
+            val tab = SettingsTab.values().firstOrNull { navId(it) == item.itemId } ?: SettingsTab.HOME
+            if (tab != currentTab) showTab(tab, animate = true)
+            true
         }
     }
 
-    private fun initViews() {
-        tvStep1Status = findViewById(R.id.tv_step1_status)
-        tvStep2Status = findViewById(R.id.tv_step2_status)
-        etTestTyping = findViewById(R.id.et_test_typing)
-        btnClearTest = findViewById(R.id.btn_clear_test)
-        layoutThemesContainer = findViewById(R.id.layout_themes_container)
-        val verName = try { packageManager.getPackageInfo(packageName, 0).versionName ?: "4.3" } catch (e: Exception) { "4.3" }
-        findViewById<TextView>(R.id.tvVersion)?.text = "v$verName"
-
-        btnChooseImage = findViewById(R.id.btn_choose_image)
-        btnRemoveImage = findViewById(R.id.btn_remove_image)
-        tvOpacityValue = findViewById(R.id.tv_opacity_value)
-        seekbarOpacity = findViewById(R.id.seekbar_opacity)
-
-        btnAutocorrectOff = findViewById(R.id.btn_autocorrect_off)
-        btnAutocorrectConservative = findViewById(R.id.btn_autocorrect_conservative)
-        btnAutocorrectAggressive = findViewById(R.id.btn_autocorrect_aggressive)
-
-        switchClipboard = findViewById(R.id.switch_clipboard)
-        switchNumberRow = findViewById(R.id.switch_number_row)
-        switchKeyPopup = findViewById(R.id.switch_key_popup)
-        switchHaptic = findViewById(R.id.switch_haptic)
-        switchSound = findViewById(R.id.switch_sound)
-        switchAutoCaps = findViewById(R.id.switch_autocaps)
-
-        btnHeightCompact = findViewById(R.id.btn_height_compact)
-        btnHeightNormal = findViewById(R.id.btn_height_normal)
-        btnHeightTall = findViewById(R.id.btn_height_tall)
-
-        btnClearTest.setOnClickListener {
-            etTestTyping.setText("")
-        }
-
-        etTestTyping.setOnClickListener {
-            etTestTyping.requestFocus()
-            val imm = getSystemService(Context.INPUT_METHOD_SERVICE) as? InputMethodManager
-            imm?.showSoftInput(etTestTyping, InputMethodManager.SHOW_IMPLICIT)
+    private fun pageFor(tab: SettingsTab): SettingsPage = pages.getOrPut(tab) {
+        when (tab) {
+            SettingsTab.HOME -> HomePage(this)
+            SettingsTab.APPEARANCE -> AppearancePage(this)
+            SettingsTab.KEYBOARD -> KeyboardPage(this)
+            SettingsTab.LANGUAGE -> LanguagePage(this)
+            SettingsTab.ADVANCED -> AdvancedPage(this)
         }
     }
 
-    private fun setupWizard() {
-        findViewById<View>(R.id.btn_step1_enable).setOnClickListener {
-            val intent = Intent(Settings.ACTION_INPUT_METHOD_SETTINGS)
-            startActivity(intent)
+    /** Material fade-through: outgoing fades out quickly, incoming fades + rises in. */
+    private fun showTab(tab: SettingsTab, animate: Boolean) {
+        val outgoing = pages[currentTab]?.view?.takeIf { it.parent === content }
+        currentTab = tab
+        val page = pageFor(tab)
+        val incoming = page.view
+        if (incoming.parent == null) content.addView(incoming, FrameLayout.LayoutParams(FrameLayout.LayoutParams.MATCH_PARENT, FrameLayout.LayoutParams.MATCH_PARENT))
+        page.onShown()
+        if (outgoing != null && outgoing !== incoming) {
+            if (animate) {
+                outgoing.animate().alpha(0f).setDuration(90).withEndAction { outgoing.visibility = View.GONE; outgoing.alpha = 1f }.start()
+            } else {
+                outgoing.visibility = View.GONE
+            }
         }
-
-        findViewById<View>(R.id.btn_step2_switch).setOnClickListener {
-            val imm = getSystemService(Context.INPUT_METHOD_SERVICE) as? InputMethodManager
-            imm?.showInputMethodPicker()
-        }
-    }
-
-    private fun updateWizardStatus() {
-        val isEnabled = isKeyboardEnabled()
-        val isSelected = isKeyboardSelected()
-
-        if (isEnabled) {
-            tvStep1Status.text = "Enabled ✓"
-            tvStep1Status.setTextColor(ContextCompat.getColor(this, R.color.accent_green))
+        incoming.visibility = View.VISIBLE
+        if (animate) {
+            incoming.alpha = 0f
+            incoming.translationY = ui.dpf(16f)
+            incoming.animate().alpha(1f).translationY(0f).setStartDelay(70).setDuration(240).setInterpolator(ui.emphasized).start()
         } else {
-            tvStep1Status.text = "Enable"
-            tvStep1Status.setTextColor(ContextCompat.getColor(this, R.color.primary))
+            incoming.alpha = 1f
+            incoming.translationY = 0f
         }
-
-        if (isSelected) {
-            tvStep2Status.text = "Active ✓"
-            tvStep2Status.setTextColor(ContextCompat.getColor(this, R.color.accent_green))
-        } else {
-            tvStep2Status.text = "Select"
-            tvStep2Status.setTextColor(ContextCompat.getColor(this, R.color.primary))
-        }
+        incoming.bringToFront()
     }
 
-    private fun isKeyboardEnabled(): Boolean {
+    // ---------------------------------------------------------------------------------------
+    // SettingsHost
+    // ---------------------------------------------------------------------------------------
+
+    override fun navigateTo(tab: SettingsTab) {
+        if (navBar.selectedItemId != navId(tab)) navBar.selectedItemId = navId(tab)
+        else if (tab != currentTab) showTab(tab, animate = true)
+    }
+
+    override fun rebuildPages() {
+        pages.values.forEach { content.removeView(it.view) }
+        pages.clear()
+        showTab(currentTab, animate = true)
+    }
+
+    override fun pickBackgroundImage() {
+        pickImageLauncher.launch("image/*")
+    }
+
+    override fun isKeyboardEnabled(): Boolean {
         val imm = getSystemService(Context.INPUT_METHOD_SERVICE) as? InputMethodManager ?: return false
-        val list = imm.enabledInputMethodList
-        val myPackage = packageName
-        return list.any { it.packageName == myPackage }
+        return imm.enabledInputMethodList.any { it.packageName == packageName }
     }
 
-    private fun isKeyboardSelected(): Boolean {
+    override fun isKeyboardSelected(): Boolean {
         val currentIme = Settings.Secure.getString(contentResolver, Settings.Secure.DEFAULT_INPUT_METHOD) ?: ""
         return currentIme.contains(packageName)
     }
 
-    private fun setupCustomBackground() {
-        btnChooseImage.setOnClickListener {
-            pickImageLauncher.launch("image/*")
-        }
-
-        btnRemoveImage.setOnClickListener {
-            preferences.customBgPath = null
-            Toast.makeText(this, "Custom background removed", Toast.LENGTH_SHORT).show()
-        }
-
-        val opacityPct = (preferences.customBgOpacity * 100).toInt()
-        seekbarOpacity.progress = opacityPct
-        tvOpacityValue.text = "$opacityPct%"
-
-        seekbarOpacity.setOnSeekBarChangeListener(object : SeekBar.OnSeekBarChangeListener {
-            override fun onProgressChanged(seekBar: SeekBar?, progress: Int, fromUser: Boolean) {
-                val clamped = progress.coerceIn(20, 100)
-                tvOpacityValue.text = "$clamped%"
-                preferences.customBgOpacity = clamped / 100f
-            }
-
-            override fun onStartTrackingTouch(seekBar: SeekBar?) {}
-            override fun onStopTrackingTouch(seekBar: SeekBar?) {}
-        })
+    override fun openInputMethodSettings() {
+        startActivity(Intent(Settings.ACTION_INPUT_METHOD_SETTINGS))
     }
+
+    override fun showInputMethodPicker() {
+        (getSystemService(Context.INPUT_METHOD_SERVICE) as? InputMethodManager)?.showInputMethodPicker()
+    }
+
+    override fun applyAppThemeMode(mode: String) {
+        AppCompatDelegate.setDefaultNightMode(nightModeFor(mode))
+    }
+
+    override fun appVersion(): String =
+        try { packageManager.getPackageInfo(packageName, 0).versionName ?: "" } catch (_: Exception) { "" }
+
+    /** Menu ids start at 1 (0 is Menu.NONE). */
+    private fun navId(tab: SettingsTab) = tab.ordinal + 1
+
+    private fun nightModeFor(mode: String): Int = when (mode) {
+        "light" -> AppCompatDelegate.MODE_NIGHT_NO
+        "dark" -> AppCompatDelegate.MODE_NIGHT_YES
+        else -> AppCompatDelegate.MODE_NIGHT_FOLLOW_SYSTEM
+    }
+
+    // ---------------------------------------------------------------------------------------
+    // Photo background (unchanged behaviour: centre-crop to keyboard ratio, stored privately)
+    // ---------------------------------------------------------------------------------------
 
     private fun saveCustomBackground(uri: Uri) {
         try {
@@ -240,11 +268,17 @@ class MainActivity : AppCompatActivity() {
                 originalBitmap.recycle()
             }
 
-            preferences.customBgPath = file.absolutePath
-            Toast.makeText(this, "Custom photo background cropped & applied! ✓", Toast.LENGTH_SHORT).show()
+            // Re-set the path so listeners fire even when the file name is unchanged.
+            setBackgroundPath(file.absolutePath)
+            Toast.makeText(this, "Photo background applied", Toast.LENGTH_SHORT).show()
         } catch (e: Exception) {
             Toast.makeText(this, "Failed to load photo: ${e.message}", Toast.LENGTH_SHORT).show()
         }
+    }
+
+    private fun setBackgroundPath(path: String) {
+        prefs.customBgPath = null
+        prefs.customBgPath = path
     }
 
     private fun cropToKeyboardRatio(source: Bitmap): Bitmap {
@@ -274,194 +308,7 @@ class MainActivity : AppCompatActivity() {
         return Bitmap.createScaledBitmap(cropped, 1080, 514, true)
     }
 
-    private fun setupAutoCorrectModes() {
-        updateAutoCorrectButtons(preferences.autoCorrectMode)
-
-        btnAutocorrectOff.setOnClickListener {
-            preferences.autoCorrectMode = AutoCorrectMode.OFF
-            updateAutoCorrectButtons(AutoCorrectMode.OFF)
-        }
-
-        btnAutocorrectConservative.setOnClickListener {
-            preferences.autoCorrectMode = AutoCorrectMode.CONSERVATIVE
-            updateAutoCorrectButtons(AutoCorrectMode.CONSERVATIVE)
-        }
-
-        btnAutocorrectAggressive.setOnClickListener {
-            preferences.autoCorrectMode = AutoCorrectMode.AGGRESSIVE
-            updateAutoCorrectButtons(AutoCorrectMode.AGGRESSIVE)
-        }
-    }
-
-    private fun updateAutoCorrectButtons(mode: AutoCorrectMode) {
-        val primaryColor = ContextCompat.getColor(this, R.color.primary)
-        val defaultBgColor = ContextCompat.getColor(this, R.color.surface_card)
-
-        val setButtonActive = { btn: TextView, active: Boolean ->
-            val bg = GradientDrawable().apply {
-                cornerRadius = dpToPx(8).toFloat()
-                setColor(if (active) primaryColor else defaultBgColor)
-            }
-            btn.background = bg
-            btn.setTextColor(if (active) Color.WHITE else ContextCompat.getColor(this, R.color.text_primary))
-        }
-
-        setButtonActive(btnAutocorrectOff, mode == AutoCorrectMode.OFF)
-        setButtonActive(btnAutocorrectConservative, mode == AutoCorrectMode.CONSERVATIVE)
-        setButtonActive(btnAutocorrectAggressive, mode == AutoCorrectMode.AGGRESSIVE)
-    }
-
-    private fun setupThemePicker() {
-        layoutThemesContainer.removeAllViews()
-
-        val currentSelectedTheme = preferences.theme
-
-        KeyboardTheme.values().forEach { theme ->
-            val isSelected = theme == currentSelectedTheme
-
-            val card = LinearLayout(this).apply {
-                orientation = LinearLayout.VERTICAL
-                gravity = Gravity.CENTER
-                val pad = dpToPx(12)
-                setPadding(pad, pad, pad, pad)
-                val cardWidth = dpToPx(120)
-                layoutParams = LinearLayout.LayoutParams(cardWidth, LinearLayout.LayoutParams.WRAP_CONTENT).apply {
-                    marginEnd = dpToPx(10)
-                }
-
-                val bg = GradientDrawable().apply {
-                    cornerRadius = dpToPx(12).toFloat()
-                    setColor(theme.backgroundColor)
-                    val strokeColor = if (isSelected) ContextCompat.getColor(this@MainActivity, R.color.secondary) else Color.parseColor("#334155")
-                    val strokeWidth = if (isSelected) dpToPx(2) else dpToPx(1)
-                    setStroke(strokeWidth, strokeColor)
-                }
-                background = bg
-
-                val swatchRow = LinearLayout(this@MainActivity).apply {
-                    orientation = LinearLayout.HORIZONTAL
-                    gravity = Gravity.CENTER
-                    layoutParams = LinearLayout.LayoutParams(LinearLayout.LayoutParams.MATCH_PARENT, dpToPx(24)).apply {
-                        bottomMargin = dpToPx(8)
-                    }
-
-                    addView(View(this@MainActivity).apply {
-                        val keyBg = GradientDrawable().apply {
-                            cornerRadius = dpToPx(4).toFloat()
-                            setColor(theme.keyNormalColor)
-                        }
-                        background = keyBg
-                        layoutParams = LinearLayout.LayoutParams(dpToPx(22), dpToPx(22)).apply { marginEnd = dpToPx(3) }
-                    })
-
-                    addView(View(this@MainActivity).apply {
-                        val keyBg = GradientDrawable().apply {
-                            cornerRadius = dpToPx(4).toFloat()
-                            setColor(theme.keyActionColor)
-                        }
-                        background = keyBg
-                        layoutParams = LinearLayout.LayoutParams(dpToPx(22), dpToPx(22)).apply { marginEnd = dpToPx(3) }
-                    })
-
-                    addView(View(this@MainActivity).apply {
-                        val keyBg = GradientDrawable().apply {
-                            cornerRadius = dpToPx(4).toFloat()
-                            setColor(theme.keySpecialColor)
-                        }
-                        background = keyBg
-                        layoutParams = LinearLayout.LayoutParams(dpToPx(22), dpToPx(22))
-                    })
-                }
-                addView(swatchRow)
-
-                val nameTv = TextView(this@MainActivity).apply {
-                    text = if (isSelected) "${theme.displayName} ✓" else theme.displayName
-                    textSize = 12f
-                    gravity = Gravity.CENTER
-                    setTextColor(theme.textColorPrimary)
-                }
-                addView(nameTv)
-
-                setOnClickListener {
-                    preferences.theme = theme
-                    setupThemePicker()
-                }
-            }
-
-            layoutThemesContainer.addView(card)
-        }
-    }
-
-    private fun setupPreferences() {
-        switchClipboard.isChecked = preferences.isClipboardHistoryEnabled
-        switchClipboard.setOnCheckedChangeListener { _, isChecked ->
-            preferences.isClipboardHistoryEnabled = isChecked
-        }
-
-        switchNumberRow.isChecked = preferences.isNumberRowEnabled
-        switchNumberRow.setOnCheckedChangeListener { _, isChecked ->
-            preferences.isNumberRowEnabled = isChecked
-        }
-
-        switchKeyPopup.isChecked = preferences.isPopupEnabled
-        switchKeyPopup.setOnCheckedChangeListener { _, isChecked ->
-            preferences.isPopupEnabled = isChecked
-        }
-
-        switchHaptic.isChecked = preferences.isHapticEnabled
-        switchHaptic.setOnCheckedChangeListener { _, isChecked ->
-            preferences.isHapticEnabled = isChecked
-        }
-
-        switchSound.isChecked = preferences.isSoundEnabled
-        switchSound.setOnCheckedChangeListener { _, isChecked ->
-            preferences.isSoundEnabled = isChecked
-        }
-
-        switchAutoCaps.isChecked = preferences.isAutoCapsEnabled
-        switchAutoCaps.setOnCheckedChangeListener { _, isChecked ->
-            preferences.isAutoCapsEnabled = isChecked
-        }
-    }
-
-    private fun setupHeightAdjuster() {
-        updateHeightButtons(preferences.heightScale)
-
-        btnHeightCompact.setOnClickListener {
-            preferences.heightScale = 0.88f
-            updateHeightButtons(0.88f)
-        }
-
-        btnHeightNormal.setOnClickListener {
-            preferences.heightScale = 1.0f
-            updateHeightButtons(1.0f)
-        }
-
-        btnHeightTall.setOnClickListener {
-            preferences.heightScale = 1.15f
-            updateHeightButtons(1.15f)
-        }
-    }
-
-    private fun updateHeightButtons(currentScale: Float) {
-        val primaryColor = ContextCompat.getColor(this, R.color.primary)
-        val defaultBgColor = ContextCompat.getColor(this, R.color.surface_card)
-
-        val setButtonActive = { btn: TextView, active: Boolean ->
-            val bg = GradientDrawable().apply {
-                cornerRadius = dpToPx(8).toFloat()
-                setColor(if (active) primaryColor else defaultBgColor)
-            }
-            btn.background = bg
-            btn.setTextColor(if (active) Color.WHITE else ContextCompat.getColor(this, R.color.text_primary))
-        }
-
-        setButtonActive(btnHeightCompact, currentScale < 0.95f)
-        setButtonActive(btnHeightNormal, currentScale in 0.95f..1.05f)
-        setButtonActive(btnHeightTall, currentScale > 1.05f)
-    }
-
-    private fun dpToPx(dp: Int): Int {
-        return (dp * resources.displayMetrics.density).toInt()
+    private companion object {
+        const val STATE_TAB = "settings_tab"
     }
 }

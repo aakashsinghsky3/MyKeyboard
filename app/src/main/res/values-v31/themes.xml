@@ -1,0 +1,8 @@
+<resources xmlns:tools="http://schemas.android.com/tools">
+    <!-- Android 12+ system splash with the brand keycap. -->
+    <style name="Theme.MyKeyboard.Starting" parent="Base.Theme.MyKeyboard">
+        <item name="android:windowSplashScreenBackground">@color/brand_charcoal</item>
+        <item name="android:windowSplashScreenAnimatedIcon">@drawable/ic_splash_mark</item>
+        <item name="android:windowSplashScreenIconBackgroundColor">@color/brand_charcoal</item>
+    </style>
+</resources>

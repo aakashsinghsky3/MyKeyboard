@@ -1,16 +1,42 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
+    <!-- Brand (fixed) -->
+    <color name="brand_charcoal">#FF151515</color>
+    <color name="brand_graphite">#FF262626</color>
+    <color name="brand_amber">#FFFFB020</color>
+    <color name="brand_gold">#FFFFD166</color>
+    <color name="brand_offwhite">#FFF5F5F5</color>
+
+    <!-- UI tokens: light -->
+    <color name="ui_background">#FFF5F4F2</color>
+    <color name="ui_surface">#FFFFFFFF</color>
+    <color name="ui_surface_variant">#FFEFEDEA</color>
+    <color name="ui_surface_high">#FFE7E4E0</color>
+    <color name="ui_on_surface">#FF151515</color>
+    <color name="ui_on_surface_variant">#FF5F5A54</color>
+    <color name="ui_outline">#FFE3DFDA</color>
+    <color name="ui_primary">#FFFFB020</color>
+    <color name="ui_on_primary">#FF151515</color>
+    <color name="ui_primary_container">#FFFFE8B8</color>
+    <color name="ui_on_primary_container">#FF3A2800</color>
+    <!-- Amber dark enough for text/icons on light surfaces (WCAG AA) -->
+    <color name="ui_accent_ink">#FF8F5E00</color>
+    <color name="ui_success">#FF2E7D4F</color>
+    <color name="ui_danger">#FFB3261E</color>
+    <color name="ui_nav_bar">#FFFFFFFF</color>
+
+    <!-- Legacy names kept for older code paths -->
     <color name="black">#FF000000</color>
     <color name="white">#FFFFFFFF</color>
-    <color name="primary">#4F46E5</color>
-    <color name="primary_variant">#4338CA</color>
-    <color name="secondary">#06B6D4</color>
-    <color name="background_dark">#0F172A</color>
-    <color name="surface_dark">#1E293B</color>
-    <color name="surface_card">#334155</color>
-    <color name="text_primary">#F8FAFC</color>
-    <color name="text_secondary">#94A3B8</color>
-    <color name="accent_green">#10B981</color>
-    <color name="accent_blue">#3B82F6</color>
-    <color name="accent_purple">#8B5CF6</color>
+    <color name="primary">@color/ui_primary</color>
+    <color name="primary_variant">@color/brand_gold</color>
+    <color name="secondary">@color/ui_accent_ink</color>
+    <color name="background_dark">@color/ui_background</color>
+    <color name="surface_dark">@color/ui_surface</color>
+    <color name="surface_card">@color/ui_surface_variant</color>
+    <color name="text_primary">@color/ui_on_surface</color>
+    <color name="text_secondary">@color/ui_on_surface_variant</color>
+    <color name="accent_green">@color/ui_success</color>
+    <color name="accent_blue">@color/ui_accent_ink</color>
+    <color name="accent_purple">@color/ui_accent_ink</color>
 </resources>

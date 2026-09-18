@@ -106,21 +106,26 @@ class MyKeyboardService : InputMethodService(),
 
     private val uiHandler = android.os.Handler(android.os.Looper.getMainLooper())
     private val predictionExecutor = java.util.concurrent.Executors.newSingleThreadExecutor()
+    private val predictionSequence = java.util.concurrent.atomic.AtomicInteger(0)
     private var pendingPredictionRunnable: Runnable? = null
+    private var latestSuggestionResult: com.example.mykeyboard.engine.SuggestionResult? = null
+    private var latestPrefix: String = ""
+    private var lastAutocorrectReplaced: Pair<String, String>? = null
 
     override fun onTextKey(text: String) {
         val ic = currentInputConnection ?: return
+        lastAutocorrectReplaced = null
 
         // Fast Path: Direct key from keyboard layout (does not end with space)
         if (!text.endsWith(" ")) {
             ic.commitText(text, 1)
+            checkAutoCaps()
 
             pendingPredictionRunnable?.let { uiHandler.removeCallbacks(it) }
             pendingPredictionRunnable = Runnable {
-                checkAutoCaps()
                 updatePredictions()
             }
-            uiHandler.postDelayed(pendingPredictionRunnable!!, 75)
+            uiHandler.postDelayed(pendingPredictionRunnable!!, 20)
             return
         }
 
@@ -135,10 +140,10 @@ class MyKeyboardService : InputMethodService(),
             }
         }
 
-        val textBefore = ic.getTextBeforeCursor(20, 0)?.toString() ?: ""
-        val lastWord = textBefore.split(Regex("[^\\p{L}\\p{N}']")).lastOrNull() ?: ""
+        val textBefore = ic.getTextBeforeCursor(50, 0)?.toString() ?: ""
+        val lastWord = if (textBefore.endsWith(" ")) "" else (textBefore.split(Regex("[^\\p{L}\\p{N}']")).lastOrNull() ?: "")
 
-        if (!isEmoji && text.startsWith(lastWord, ignoreCase = true) && lastWord.isNotEmpty() && text.length > lastWord.length) {
+        if (!isEmoji && lastWord.isNotEmpty()) {
             ic.deleteSurroundingText(lastWord.length, 0)
         }
 
@@ -245,6 +250,22 @@ class MyKeyboardService : InputMethodService(),
         val ic = currentInputConnection ?: return
         recordCurrentSnapshot()
 
+        // 1. Undo autocorrect if backspace is pressed immediately after autocorrect on space
+        if (lastAutocorrectReplaced != null) {
+            val (originalTypo, correctedWord) = lastAutocorrectReplaced!!
+            val textBefore = ic.getTextBeforeCursor(correctedWord.length + 2, 0)?.toString() ?: ""
+            if (textBefore.endsWith("$correctedWord ")) {
+                ic.deleteSurroundingText(correctedWord.length + 1, 0)
+                ic.commitText(originalTypo, 1)
+                lastAutocorrectReplaced = null
+                checkAutoCaps()
+                updatePredictions()
+                recordCurrentSnapshot()
+                return
+            }
+        }
+        lastAutocorrectReplaced = null
+
         val selectedText = ic.getSelectedText(0)
         if (!TextUtils.isEmpty(selectedText)) {
             ic.commitText("", 1)
@@ -271,7 +292,7 @@ class MyKeyboardService : InputMethodService(),
     override fun onSpace() {
         val ic = currentInputConnection ?: return
         val now = System.currentTimeMillis()
-        val textBefore = ic.getTextBeforeCursor(30, 0)?.toString() ?: ""
+        val textBefore = ic.getTextBeforeCursor(40, 0)?.toString() ?: ""
 
         // 1. Double space for ". " shortcut
         if (now - lastSpaceTime < 450) {
@@ -279,24 +300,45 @@ class MyKeyboardService : InputMethodService(),
                 ic.deleteSurroundingText(1, 0)
                 ic.commitText(". ", 1)
                 lastSpaceTime = 0L
+                lastAutocorrectReplaced = null
                 checkAutoCaps()
                 updatePredictions()
                 return
             }
         }
 
-        // 2. Commit space instantly
+        // 2. Autocorrect on space if enabled and valid autocorrect suggestion exists
+        val allWords = textBefore.trim().split(Regex("[^\\p{L}\\p{N}']")).filter { it.isNotEmpty() }
+        val lastWord = if (textBefore.endsWith(" ")) "" else (allWords.lastOrNull() ?: "")
+        val autoCorrectWord = latestSuggestionResult?.takeIf { it.isAutoCorrect }?.center
+        if (preferences.autoCorrectMode != com.example.mykeyboard.engine.AutoCorrectMode.OFF &&
+            autoCorrectWord != null &&
+            lastWord.isNotEmpty() &&
+            (lastWord.equals(latestPrefix, ignoreCase = true) || lastWord.length >= 2)
+        ) {
+            ic.deleteSurroundingText(lastWord.length, 0)
+            ic.commitText("$autoCorrectWord ", 1)
+            lastAutocorrectReplaced = Pair(lastWord, autoCorrectWord)
+            lastSpaceTime = now
+
+            predictionExecutor.execute {
+                predictionEngine.learnWord(autoCorrectWord)
+            }
+
+            checkAutoCaps()
+            updatePredictions()
+            return
+        }
+
+        // 3. Commit space instantly
         ic.commitText(" ", 1)
+        lastAutocorrectReplaced = null
         lastSpaceTime = now
 
-        // 3. Learn typed word in background thread so typing is never blocked
-        if (!textBefore.endsWith(" ")) {
-            val allWords = textBefore.trim().split(Regex("[^\\p{L}\\p{N}']")).filter { it.isNotEmpty() }
-            val lastWord = allWords.lastOrNull() ?: ""
-            if (lastWord.isNotEmpty()) {
-                predictionExecutor.execute {
-                    predictionEngine.learnWord(lastWord)
-                }
+        // 4. Learn typed word in background thread so typing is never blocked
+        if (lastWord.isNotEmpty()) {
+            predictionExecutor.execute {
+                predictionEngine.learnWord(lastWord)
             }
         }
 
@@ -419,10 +461,17 @@ class MyKeyboardService : InputMethodService(),
         val lang = preferences.currentLanguage
         val autoCorrectMode = preferences.autoCorrectMode
 
+        val seq = predictionSequence.incrementAndGet()
         predictionExecutor.execute {
+            if (seq != predictionSequence.get()) return@execute
             val result = predictionEngine.getSuggestions(prefix, prevWords, autoCorrectMode, lang)
+            if (seq != predictionSequence.get()) return@execute
             uiHandler.post {
-                keyboardView?.setSuggestionsResult(result, prefix)
+                if (seq == predictionSequence.get()) {
+                    latestSuggestionResult = result
+                    latestPrefix = prefix
+                    keyboardView?.setSuggestionsResult(result, prefix)
+                }
             }
         }
     }
@@ -457,15 +506,13 @@ class MyKeyboardService : InputMethodService(),
     // Preference Changes
     // ---------------------------------------------------------------------------------------------
     override fun onSharedPreferenceChanged(sharedPreferences: SharedPreferences?, key: String?) {
-        when (key) {
-            KeyboardPreferences.KEY_THEME,
-            KeyboardPreferences.KEY_NUMBER_ROW,
-            KeyboardPreferences.KEY_HEIGHT_SCALE,
-            KeyboardPreferences.KEY_CUSTOM_BG_PATH,
-            KeyboardPreferences.KEY_CUSTOM_BG_OPACITY -> {
-                keyboardView?.applyTheme(preferences.theme)
-                updateNavigationBarAppearance()
-            }
+        // key == null: preferences were cleared (Reset all settings) on API 30+.
+        if (key == null || key in KeyboardPreferences.APPEARANCE_KEYS) {
+            keyboardView?.applyTheme(preferences.theme)
+            updateNavigationBarAppearance()
+        } else if (key == KeyboardPreferences.KEY_LANGUAGE) {
+            // Changed from the settings app; the keyboard's own toggle already re-rendered.
+            keyboardView?.refreshLanguageIfChanged()
         }
     }
 
@@ -475,27 +522,42 @@ class MyKeyboardService : InputMethodService(),
             val win = window?.window ?: return
             val theme = preferences.theme
             val isCustomBg = !preferences.customBgPath.isNullOrEmpty() && java.io.File(preferences.customBgPath!!).exists()
-            val navColor = if (isCustomBg) {
+            val chassis = if (isCustomBg) {
                 Color.parseColor("#0F172A")
             } else {
-                theme.backgroundColor
+                androidx.core.graphics.ColorUtils.setAlphaComponent(theme.background.endColor, 255)
             }
-            val isLight = if (isCustomBg) false else (ColorUtils.calculateLuminance(navColor) > 0.5)
+            val isLight = if (isCustomBg) false else (ColorUtils.calculateLuminance(chassis) > 0.5)
 
-            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.LOLLIPOP) {
-                win.addFlags(WindowManager.LayoutParams.FLAG_DRAWS_SYSTEM_BAR_BACKGROUNDS)
-                win.clearFlags(WindowManager.LayoutParams.FLAG_TRANSLUCENT_NAVIGATION)
-                win.navigationBarColor = navColor
+            // Lay the keyboard window out edge-to-edge so the system always reports the real
+            // navigation bar insets to CustomKeyboardView, on every OEM and both navigation modes.
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
+                WindowCompat.setDecorFitsSystemWindows(win, false)
+            } else {
+                // Only the two flags that matter for a bottom, wrap-content window; the compat
+                // helper would also add LAYOUT_FULLSCREEN, which some older OEM ROMs mishandle.
+                @Suppress("DEPRECATION")
+                win.decorView.systemUiVisibility = win.decorView.systemUiVisibility or
+                    View.SYSTEM_UI_FLAG_LAYOUT_STABLE or
+                    View.SYSTEM_UI_FLAG_LAYOUT_HIDE_NAVIGATION
             }
+            win.addFlags(WindowManager.LayoutParams.FLAG_DRAWS_SYSTEM_BAR_BACKGROUNDS)
+            win.clearFlags(WindowManager.LayoutParams.FLAG_TRANSLUCENT_NAVIGATION)
+            // Transparent system bar: the keyboard's own background paints behind the navigation
+            // bar, and the keys are kept clear of it by the inset padding. The decor keeps the
+            // chassis colour so nothing shows through while the window animates in or resizes.
+            win.navigationBarColor = Color.TRANSPARENT
             if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
                 win.isNavigationBarContrastEnforced = false
             }
 
             val decor = win.decorView
-            decor.setBackgroundColor(navColor)
+            decor.setBackgroundColor(chassis)
 
             val controller = WindowInsetsControllerCompat(win, decor)
             controller.isAppearanceLightNavigationBars = isLight
+
+            keyboardView?.refreshWindowInsets()
         } catch (_: Exception) {}
     }
 }

@@ -9,7 +9,6 @@ import android.graphics.Color
 import android.graphics.Typeface
 import android.graphics.drawable.BitmapDrawable
 import android.graphics.drawable.GradientDrawable
-import android.graphics.drawable.InsetDrawable
 import android.media.AudioManager
 import android.os.Build
 import android.os.Handler
@@ -40,6 +39,20 @@ import com.example.mykeyboard.model.KeyboardMode
 import com.example.mykeyboard.model.KeyboardTheme
 import com.example.mykeyboard.model.ShiftState
 import com.example.mykeyboard.utils.KeyboardPreferences
+import com.example.mykeyboard.theme.KeyColorResolver
+import com.example.mykeyboard.theme.KeyLabelMetrics
+import com.example.mykeyboard.theme.KeyMotion
+import com.example.mykeyboard.theme.KeyRole
+import com.example.mykeyboard.theme.KeyView
+import com.example.mykeyboard.theme.KeyboardBackgroundDrawable
+import com.example.mykeyboard.theme.KeyboardThemeManager
+import com.example.mykeyboard.theme.KeycapDrawable
+import com.example.mykeyboard.theme.KeycapResolver
+import com.example.mykeyboard.theme.KeycapSpec
+import com.example.mykeyboard.theme.StripStyle
+import com.example.mykeyboard.theme.StripDividerDrawable
+import com.example.mykeyboard.theme.ThemeColor
+import android.util.TypedValue
 import java.io.File
 import kotlin.math.abs
 
@@ -132,7 +145,27 @@ class CustomKeyboardView @JvmOverloads constructor(
     // Shift & letter views tracking for instantaneous in-place Shift toggle (no view rebuild)
     private val letterKeyViews = mutableListOf<Pair<TextView, KeyModel>>()
     private var shiftKeyIcon: ImageView? = null
-    private var shiftKeyBackground: GradientDrawable? = null
+    private var shiftKeyDrawable: KeycapDrawable? = null
+    private var shiftSpecIdle: KeycapSpec? = null
+    private var shiftSpecActive: KeycapSpec? = null
+
+    // Theme render context – rebuilt only in applyTheme(), shared by every key.
+    private var keycapResolver = KeycapResolver(currentTheme, context.resources.displayMetrics.density)
+    private var keyMotion = KeyMotion(currentTheme.pressEffect, false)
+    private var labelTypeface: Typeface = Typeface.DEFAULT
+    private var labelTypefaceStrong: Typeface = Typeface.DEFAULT_BOLD
+    // Declared before init{}: init starts the async photo load that compares against this.
+    private var backgroundRequestPath: String? = null
+    private var renderedLanguageId: String? = null
+    private var renderedRowsHeight = 0
+    private var pendingShiftRender = false
+
+    // Navigation-bar spacing state (see readSystemInsets); declared before init{} so nothing
+    // resets it after the first layout.
+    private var panelResizeRunnable: Runnable? = null
+    private var systemBottomInset = 0
+    private var systemLeftInset = 0
+    private var systemRightInset = 0
 
     // Long press & multi-touch management
     private var activeLongPressRunnable: Runnable? = null
@@ -140,10 +173,31 @@ class CustomKeyboardView @JvmOverloads constructor(
     private var isSpaceHeld = false
     private var isSpaceCommitted = false
 
+    private var pendingKeyView: View? = null
+    private var pendingKeyModel: KeyModel? = null
+    private var isPendingKeyCommitted = false
+    private var isPendingKeyLongPressed = false
+
     private fun cancelPendingLongPress() {
         activeLongPressRunnable?.let { handler.removeCallbacks(it) }
         activeLongPressRunnable = null
         activeLongPressKey = null
+        dismissPopup()
+    }
+
+    private fun commitPendingKeyIfNeeded() {
+        cancelPendingLongPress()
+        val key = pendingKeyModel
+        val v = pendingKeyView
+        if (key != null && !isPendingKeyCommitted && !isPendingKeyLongPressed) {
+            isPendingKeyCommitted = true
+            handleKeyClick(key)
+        }
+        v?.isPressed = false
+        pendingKeyView = null
+        pendingKeyModel = null
+        isPendingKeyLongPressed = false
+        isPendingKeyCommitted = false
         dismissPopup()
     }
 
@@ -189,19 +243,18 @@ class CustomKeyboardView @JvmOverloads constructor(
             orientation = VERTICAL
             gravity = Gravity.CENTER_HORIZONTAL
             layoutParams = FrameLayout.LayoutParams(FrameLayout.LayoutParams.MATCH_PARENT, FrameLayout.LayoutParams.WRAP_CONTENT)
-            setPadding(dpToPx(8), dpToPx(3), dpToPx(8), initialBottomPad)
+            setPadding(dpToPx(2), dpToPx(3), dpToPx(2), initialBottomPad)
         }
         keyboardContainer.addView(rowsLayout)
         addView(keyboardContainer)
 
         androidx.core.view.ViewCompat.setOnApplyWindowInsetsListener(this) { _, windowInsets ->
-            val navInsets = windowInsets.getInsets(androidx.core.view.WindowInsetsCompat.Type.navigationBars())
-            dynamicBottomInset = navInsets.bottom
-            val bottomPad = getCalculatedBottomPadding()
-            rowsLayout.setPadding(dpToPx(8), dpToPx(3), dpToPx(8), bottomPad)
+            readSystemInsets(windowInsets)
+            // Never consume: other views (and the system) still need these.
             windowInsets
         }
 
+        rebuildRenderContext()
         initKeyPopup()
         initAccentsPopup()
         setupToolbarAndCandidates()
@@ -222,68 +275,62 @@ class CustomKeyboardView @JvmOverloads constructor(
     }
 
     fun applyTheme(theme: KeyboardTheme) {
+        if (emojiSearchActive) endEmojiSearch(reopenEmoji = false)
         this.currentTheme = theme
+        rebuildRenderContext()
+        refreshPopupStyles()
         applyBackgroundAndTheme()
-        emojiKeyboardView?.applyTheme(theme)
+        emojiKeyboardView?.applyTheme(theme, keycapResolver, keyMotion)
         clipboardView?.applyTheme(theme)
         setupToolbarAndCandidates()
         renderKeyboardLayout()
     }
 
-    private var bgBitmap: Bitmap? = null
-    private val bgPaint = android.graphics.Paint(android.graphics.Paint.ANTI_ALIAS_FLAG or android.graphics.Paint.FILTER_BITMAP_FLAG)
-    private val scrimPaint = android.graphics.Paint()
-
-    override fun dispatchDraw(canvas: android.graphics.Canvas) {
-        val bmp = bgBitmap
-        if (bmp != null && !bmp.isRecycled) {
-            val viewWidth = width.toFloat()
-            val viewHeight = height.toFloat()
-            if (viewWidth > 0 && viewHeight > 0) {
-                val scale = maxOf(viewWidth / bmp.width, viewHeight / bmp.height)
-                val dx = (viewWidth - bmp.width * scale) / 2f
-                val dy = (viewHeight - bmp.height * scale) / 2f
-
-                canvas.save()
-                canvas.clipRect(0f, 0f, viewWidth, viewHeight)
-                canvas.translate(dx, dy)
-                canvas.scale(scale, scale)
-                canvas.drawBitmap(bmp, 0f, 0f, bgPaint)
-                canvas.restore()
-
-                // Contrast scrim overlay to keep keycaps readable
-                val opacity = preferences.customBgOpacity
-                val scrimAlpha = ((1f - opacity * 0.7f) * 255).toInt().coerceIn(30, 230)
-                scrimPaint.color = Color.argb(scrimAlpha, 15, 23, 42)
-                canvas.drawRect(0f, 0f, viewWidth, viewHeight, scrimPaint)
-            }
-        }
-        super.dispatchDraw(canvas)
+    private fun rebuildRenderContext() {
+        val density = context.resources.displayMetrics.density
+        keycapResolver = KeycapResolver(currentTheme, density, preferences.isHighContrastEnabled, preferences.effectivePressEffect)
+        keyMotion = KeyMotion(preferences.effectivePressEffect, preferences.isReduceMotionEnabled)
+        val typo = currentTheme.typography
+        labelTypeface = Typeface.create(typo.fontFamily, if (typo.bold) Typeface.BOLD else Typeface.NORMAL)
+        labelTypefaceStrong = Typeface.create(typo.fontFamily, Typeface.BOLD)
     }
 
     private fun applyBackgroundAndTheme() {
+        val density = context.resources.displayMetrics.density
         val customPath = preferences.customBgPath
+        val stripBg = currentTheme.palette.suggestionBg
         if (!customPath.isNullOrEmpty() && File(customPath).exists()) {
-            try {
-                bgBitmap = BitmapFactory.decodeFile(customPath)
-                background = null
-                setBackgroundColor(Color.TRANSPARENT)
-                suggestionContainer.setBackgroundColor(Color.argb(180, 15, 23, 42))
-                invalidate()
-                return
-            } catch (_: Exception) {}
+            backgroundRequestPath = customPath
+            val cachedPhoto = KeyboardThemeManager.peek(customPath)
+            if (cachedPhoto != null) {
+                applyPhotoBackground(cachedPhoto)
+            } else {
+                // Show the theme chassis immediately; swap in the photo when decoded off-thread.
+                background = KeyboardBackgroundDrawable(currentTheme.background, density)
+                KeyboardThemeManager.loadPhoto(customPath) { info ->
+                    if (info != null && backgroundRequestPath == customPath) applyPhotoBackground(info)
+                }
+            }
+            suggestionContainer.setBackgroundColor(ThemeColor.withAlpha(stripBg, minOf(ThemeColor.alpha(stripBg), 150)))
+            return
         }
+        backgroundRequestPath = null
+        background = KeyboardBackgroundDrawable(currentTheme.background, density)
+        suggestionContainer.setBackgroundColor(stripBg)
+    }
 
-        bgBitmap = null
-        background = null
-        setBackgroundColor(currentTheme.backgroundColor)
-        suggestionContainer.setBackgroundColor(currentTheme.suggestionBgColor)
-        invalidate()
+    private fun applyPhotoBackground(info: KeyboardThemeManager.PhotoInfo) {
+        val (scrimColor, strength) = KeyboardThemeManager.scrimFor(currentTheme, info, preferences.customBgOpacity)
+        background = KeyboardBackgroundDrawable(
+            currentTheme.background, context.resources.displayMetrics.density,
+            photo = info.bitmap, scrimStrength = strength, scrimColor = scrimColor
+        )
     }
 
     private var activeRephraseRawInput: String? = null
 
     fun setSuggestionsResult(result: SuggestionResult, prefix: String) {
+        if (emojiSearchActive) return
         activeRephraseRawInput = null
         currentSuggestionResult = result
 
@@ -325,6 +372,7 @@ class CustomKeyboardView @JvmOverloads constructor(
     }
 
     fun showProfessionalSuggestions(rawSentence: String, options: List<String>) {
+        if (emojiSearchActive) return
         activeRephraseRawInput = rawSentence
 
         candidateCenterTv.text = options.getOrNull(0) ?: ""
@@ -343,16 +391,29 @@ class CustomKeyboardView @JvmOverloads constructor(
         candidateRightTv.visibility = if (options.getOrNull(2).isNullOrEmpty()) View.INVISIBLE else View.VISIBLE
     }
 
+    /** Called by auto-capitalisation only. */
     fun setShiftState(state: ShiftState) {
+        // Devanagari has no capitals and its Shift key swaps consonants for vowels, so the layout
+        // must never flip on its own after a sentence end.
+        if (languageUsesShiftLayout()) return
         if (this.shiftState != state) {
             this.shiftState = state
             if (keyboardMode == KeyboardMode.ALPHA) {
-                updateKeyLabelsForShift()
+                applyShiftStateChange()
             }
         }
     }
 
+    /** Re-renders letters only when the active language was changed elsewhere (settings app). */
+    fun refreshLanguageIfChanged() {
+        if (preferences.currentLanguage != renderedLanguageId && keyboardMode != KeyboardMode.EMOJI) {
+            shiftState = ShiftState.UNSHIFTED
+            renderKeyboardLayout()
+        }
+    }
+
     fun resetToAlpha() {
+        if (emojiSearchActive) endEmojiSearch(reopenEmoji = false)
         keyboardMode = KeyboardMode.ALPHA
         shiftState = ShiftState.UNSHIFTED
         showAlphaKeyboard()
@@ -368,6 +429,7 @@ class CustomKeyboardView @JvmOverloads constructor(
     private fun setupToolbarAndCandidates() {
         toolbarActionsLayout.removeAllViews()
         candidatesLayout.removeAllViews()
+        candidateIndex = 0
 
         // 1. Settings Shortcut
         val settingsBtn = createToolbarIconButton(R.drawable.ic_settings) {
@@ -461,6 +523,7 @@ class CustomKeyboardView @JvmOverloads constructor(
     }
 
     private fun createToolbarIconButton(iconRes: Int, onClick: () -> Unit): View {
+        val chips = currentTheme.stripStyle == StripStyle.CHIPS
         return ImageView(context).apply {
             setImageResource(iconRes)
             setColorFilter(currentTheme.textColorSecondary)
@@ -468,11 +531,12 @@ class CustomKeyboardView @JvmOverloads constructor(
             setPadding(pad, pad, pad, pad)
             val size = dpToPx(32)
             layoutParams = LayoutParams(size, size).apply { marginEnd = dpToPx(3) }
-            val bg = GradientDrawable().apply {
-                cornerRadius = dpToPx(16).toFloat()
-                setColor(currentTheme.keySpecialColor)
+            if (chips) {
+                background = GradientDrawable().apply {
+                    cornerRadius = dpToPx(16).toFloat()
+                    setColor(currentTheme.palette.chipBg)
+                }
             }
-            background = bg
             setOnClickListener {
                 performHapticFeedback()
                 onClick()
@@ -480,23 +544,33 @@ class CustomKeyboardView @JvmOverloads constructor(
         }
     }
 
+    private var candidateIndex = 0
+
     private fun createCandidateTextView(): TextView {
+        val chips = currentTheme.stripStyle == StripStyle.CHIPS
+        val index = candidateIndex++
         return TextView(context).apply {
             textSize = 15f
             gravity = Gravity.CENTER
             maxLines = 1
             ellipsize = android.text.TextUtils.TruncateAt.END
+            includeFontPadding = false
             setTextColor(currentTheme.suggestionTextColor)
+            // The centre (primary / autocorrect) candidate is slightly stronger.
+            typeface = if (index % 3 == 1) Typeface.create("sans-serif-medium", Typeface.NORMAL) else Typeface.create("sans-serif", Typeface.NORMAL)
             val padH = dpToPx(8)
             setPadding(padH, dpToPx(4), padH, dpToPx(4))
-            val bg = GradientDrawable().apply {
-                cornerRadius = dpToPx(10).toFloat()
-                setColor(currentTheme.keySpecialColor)
-            }
-            background = bg
+            background = if (chips) {
+                GradientDrawable().apply {
+                    cornerRadius = dpToPx(10).toFloat()
+                    setColor(currentTheme.palette.chipBg)
+                }
+            } else if (index % 3 != 0) {
+                StripDividerDrawable(ThemeColor.withAlpha(currentTheme.suggestionTextColor, 0.2f), dpToPx(1).toFloat(), dpToPx(18).toFloat())
+            } else null
             layoutParams = LayoutParams(0, dpToPx(34), 1.0f).apply {
-                marginStart = dpToPx(3)
-                marginEnd = dpToPx(3)
+                marginStart = if (chips) dpToPx(3) else 0
+                marginEnd = if (chips) dpToPx(3) else 0
             }
         }
     }
@@ -510,21 +584,51 @@ class CustomKeyboardView @JvmOverloads constructor(
         }
     }
 
+    /**
+     * Hindi (and other Devanagari layouts) swap to a different key set on Shift – vowels and
+     * matras instead of consonants – so relabelling is not enough there. Latin layouts keep the
+     * fast in-place path that only swaps labels and the Shift key's own look.
+     */
+    private fun languageUsesShiftLayout(): Boolean =
+        KeyboardLanguage.fromId(preferences.currentLanguage) != KeyboardLanguage.ENGLISH
+
+    private fun layoutDependsOnShift(): Boolean =
+        keyboardMode == KeyboardMode.ALPHA && languageUsesShiftLayout()
+
+    /** Call after any change to [shiftState] so the keys match it. */
+    private fun applyShiftStateChange() {
+        if (layoutDependsOnShift()) renderKeyboardLayout() else updateKeyLabelsForShift()
+    }
+
     private fun updateKeyLabelsForShift() {
         val isShifted = shiftState != ShiftState.UNSHIFTED
         letterKeyViews.forEach { (tv, key) ->
             tv.text = if (isShifted) key.shiftText else key.primaryText
         }
+        // In-place update: swap pre-resolved specs, no drawable or view allocation.
+        val activeSpec = shiftSpecActive
+        val idleSpec = shiftSpecIdle
+        shiftKeyDrawable?.let { d ->
+            if (activeSpec != null && idleSpec != null) d.spec = if (isShifted) activeSpec else idleSpec
+            d.indicatorVisible = shiftState == ShiftState.CAPS_LOCKED
+        }
         shiftKeyIcon?.let { icon ->
-            val res = if (shiftState == ShiftState.CAPS_LOCKED) R.drawable.ic_capslock else R.drawable.ic_shift
-            icon.setImageResource(res)
-            val tint = if (isShifted) currentTheme.actionTextColor else currentTheme.textColorPrimary
-            icon.setColorFilter(tint)
+            icon.setImageResource(shiftIconFor(shiftState))
+            val spec = if (isShifted) activeSpec else idleSpec
+            icon.setColorFilter(spec?.textColor ?: currentTheme.textColorPrimary)
+            icon.contentDescription = when (shiftState) {
+                ShiftState.UNSHIFTED -> "Shift"
+                ShiftState.SHIFTED_ONCE -> "Shift on"
+                ShiftState.CAPS_LOCKED -> "Caps lock on"
+            }
         }
-        shiftKeyBackground?.let { bg ->
-            val color = if (isShifted) currentTheme.keyActionColor else currentTheme.keySpecialColor
-            bg.setColor(color)
-        }
+    }
+
+    /** Outline = off, filled = shift once, arrow-with-bar + LED dot = caps lock. */
+    private fun shiftIconFor(state: ShiftState): Int = when (state) {
+        ShiftState.UNSHIFTED -> R.drawable.ic_shift
+        ShiftState.SHIFTED_ONCE -> R.drawable.ic_shift_filled
+        ShiftState.CAPS_LOCKED -> R.drawable.ic_capslock
     }
 
     // ---------------------------------------------------------------------------------------------
@@ -534,9 +638,12 @@ class CustomKeyboardView @JvmOverloads constructor(
         rowsLayout.removeAllViews()
         letterKeyViews.clear()
         shiftKeyIcon = null
-        shiftKeyBackground = null
+        shiftKeyDrawable = null
+        shiftSpecIdle = null
+        shiftSpecActive = null
 
         val currentLang = KeyboardLanguage.fromId(preferences.currentLanguage)
+        renderedLanguageId = currentLang.id
         val rows = when (keyboardMode) {
             KeyboardMode.ALPHA -> KeyLayoutHelper.getAlphaRows(preferences.isNumberRowEnabled, currentLang, shiftState)
             KeyboardMode.SYMBOLS_1 -> KeyLayoutHelper.getSymbols1Rows(preferences.isNumberRowEnabled, currentLang)
@@ -549,15 +656,23 @@ class CustomKeyboardView @JvmOverloads constructor(
         val defaultBottomPad = getCalculatedBottomPadding()
         val targetContentHeight = getStandardContentHeight()
 
-        rowsLayout.setPadding(dpToPx(8), dpToPx(3), dpToPx(8), defaultBottomPad)
+        rowsLayout.setPadding(dpToPx(2), dpToPx(3), dpToPx(2), defaultBottomPad)
 
         if (rows.isNotEmpty()) {
             val hasNumberRow = preferences.isNumberRowEnabled && (keyboardMode == KeyboardMode.ALPHA || keyboardMode == KeyboardMode.SYMBOLS_1 || keyboardMode == KeyboardMode.SYMBOLS_2)
             val totalMargins = (rows.size - 1) * rowMarginB
 
-            val numberRowH = if (hasNumberRow) dpToPx(38) else 0
-            val remainingH = targetContentHeight - totalMargins - numberRowH
-            val letterRowH = maxOf(dpToPx(42), if (hasNumberRow && rows.size > 1) remainingH / (rows.size - 1) else (targetContentHeight - totalMargins) / rows.size)
+            // The number row is a little shorter than the letter rows but scales with them, so
+            // digits stay properly sized on tablets and at larger keyboard heights. Heights are
+            // derived from the height budget, so the keyboard never grows past it (which would
+            // make the window jump when switching to the emoji or clipboard panel).
+            val usableH = targetContentHeight - totalMargins
+            val withNumberRow = hasNumberRow && rows.size > 1
+            val rowUnits = if (withNumberRow) (rows.size - 1) + NUMBER_ROW_RATIO else rows.size.toFloat()
+            val letterRowH = maxOf(dpToPx(MIN_ROW_DP), (usableH / rowUnits).toInt())
+            val numberRowH = if (withNumberRow) {
+                (letterRowH * NUMBER_ROW_RATIO).toInt().coerceIn(minOf(dpToPx(MIN_ROW_DP), letterRowH), letterRowH)
+            } else 0
 
             rows.forEachIndexed { rowIndex, keyRow ->
                 val isNumRow = hasNumberRow && rowIndex == 0
@@ -572,145 +687,126 @@ class CustomKeyboardView @JvmOverloads constructor(
                     layoutParams = LayoutParams(LayoutParams.MATCH_PARENT, currentRowHeight)
                 }
 
-                keyRow.forEach { keyModel ->
-                    val keyView = createKeyView(keyModel)
+                var weightBefore = 0f
+                var charIndex = 0
+                keyRow.forEachIndexed { colIndex, keyModel ->
+                    val xFraction = if (totalWeight > 0f) (weightBefore + keyModel.weight / 2f) / totalWeight else 0.5f
+                    val delegateKey = if (keyModel.type == KeyType.SPACER) {
+                        if (colIndex == 0) keyRow.getOrNull(1) else keyRow.getOrNull(colIndex - 1)
+                    } else null
+                    val keyView = createKeyView(keyModel, rowIndex, rows.size, charIndex, xFraction, currentRowHeight, delegateKey)
+                    if (keyModel.type == KeyType.CHARACTER) charIndex++
+                    weightBefore += keyModel.weight
                     rowLayout.addView(keyView)
                 }
 
                 rowsLayout.addView(rowLayout)
             }
+
+            renderedRowsHeight = (if (hasNumberRow) numberRowH else 0) +
+                letterRowH * (if (hasNumberRow) rows.size - 1 else rows.size) + totalMargins
         }
     }
 
-    private fun createKeyView(key: KeyModel): View {
+    private fun createKeyView(key: KeyModel, row: Int, rowCount: Int, charIndex: Int, xFraction: Float, rowHeightPx: Int, delegateKey: KeyModel? = null): View {
         if (key.type == KeyType.SPACER) {
-            return View(context).apply {
+            val spacerView = View(context).apply {
                 layoutParams = LayoutParams(0, LayoutParams.MATCH_PARENT, key.weight)
             }
+            if (delegateKey != null) {
+                attachTouchListener(spacerView, delegateKey)
+            }
+            return spacerView
         }
 
-        val keyMarginH = (3.0f * context.resources.displayMetrics.density).toInt()
-        val keyMarginV = (2.0f * context.resources.displayMetrics.density).toInt()
-        val keyLayout = FrameLayout(context).apply {
-            isMotionEventSplittingEnabled = true
+        val density = context.resources.displayMetrics.density
+        val rowH = rowHeightPx.toFloat()
+        val userScale = preferences.labelScale
+        val role = KeyColorResolver.roleOf(key)
+        val wide = KeyColorResolver.isWide(key)
+        val baseColor = KeyColorResolver.baseColor(currentTheme, key, role, row, rowCount, charIndex, xFraction)
+        val edgeTint = KeyColorResolver.edgeTint(currentTheme, xFraction)
+
+        val shiftActive = key.type == KeyType.SHIFT && shiftState != ShiftState.UNSHIFTED
+        val idleSpec = keycapResolver.resolve(role, baseColor, wide, false, edgeTint)
+        val spec = if (key.type == KeyType.SHIFT) {
+            val activeSpec = keycapResolver.resolve(role, currentTheme.palette.keyAction, wide, true, 0)
+            shiftSpecIdle = idleSpec
+            shiftSpecActive = activeSpec
+            if (shiftActive) activeSpec else idleSpec
+        } else idleSpec
+
+        val keycap = KeycapDrawable(spec, keyMotion)
+        val keyLayout = KeyView(context, keycap).apply {
             layoutParams = LayoutParams(0, LayoutParams.MATCH_PARENT, key.weight)
         }
 
-        val bgDrawable = GradientDrawable().apply {
-            val corner = when {
-                keyboardMode == KeyboardMode.DIALPAD -> {
-                    if (key.primaryText == "ABC" || key.primaryText == "?123" || key.type == KeyType.ENTER) dpToPx(16).toFloat()
-                    else dpToPx(7).toFloat()
-                }
-                key.type == KeyType.CHARACTER || key.type == KeyType.COMMA || key.type == KeyType.PERIOD -> dpToPx(7).toFloat()
-                key.type == KeyType.SPACE -> dpToPx(16).toFloat()
-                else -> dpToPx(16).toFloat()
-            }
-            cornerRadius = corner
-            val color = when (key.type) {
-                KeyType.ENTER -> currentTheme.keyActionColor
-                KeyType.SPACE -> currentTheme.keySpaceColor
-                KeyType.SHIFT -> {
-                    if (shiftState != ShiftState.UNSHIFTED) currentTheme.keyActionColor
-                    else currentTheme.keySpecialColor
-                }
-                KeyType.BACKSPACE, KeyType.MODE_CHANGE, KeyType.EMOJI, KeyType.COMMA, KeyType.PERIOD, KeyType.LANGUAGE_SWITCH -> currentTheme.keySpecialColor
-                else -> currentTheme.keyNormalColor
-            }
-            setColor(color)
+        val iconSize = KeyLabelMetrics.iconPx(rowH, density, userScale).toInt()
+        fun iconView(res: Int, tint: Int, desc: String) = ImageView(context).apply {
+            setImageResource(res)
+            setColorFilter(tint)
+            contentDescription = desc
+            layoutParams = FrameLayout.LayoutParams(iconSize, iconSize, Gravity.CENTER)
         }
-        val insetBgDrawable = InsetDrawable(bgDrawable, keyMarginH, keyMarginV, keyMarginH, keyMarginV)
-        keyLayout.background = insetBgDrawable
+        fun labelView(text: String, sizePx: Float, color: Int, face: Typeface) = TextView(context).apply {
+            this.text = text
+            setTextSize(TypedValue.COMPLEX_UNIT_PX, sizePx)
+            gravity = Gravity.CENTER
+            includeFontPadding = false
+            setTextColor(color)
+            typeface = face
+            maxLines = 1
+            if (currentTheme.typography.letterSpacing != 0f) letterSpacing = currentTheme.typography.letterSpacing
+            layoutParams = FrameLayout.LayoutParams(FrameLayout.LayoutParams.MATCH_PARENT, FrameLayout.LayoutParams.MATCH_PARENT)
+        }
 
         when (key.type) {
             KeyType.SHIFT -> {
-                val shiftIcon = ImageView(context).apply {
-                    val res = if (shiftState == ShiftState.CAPS_LOCKED) R.drawable.ic_capslock else R.drawable.ic_shift
-                    setImageResource(res)
-                    val tint = if (shiftState != ShiftState.UNSHIFTED) currentTheme.actionTextColor else currentTheme.textColorPrimary
-                    setColorFilter(tint)
-                    val pad = dpToPx(11)
-                    setPadding(pad, pad, pad, pad)
-                    layoutParams = FrameLayout.LayoutParams(FrameLayout.LayoutParams.MATCH_PARENT, FrameLayout.LayoutParams.MATCH_PARENT)
+                shiftKeyDrawable = keycap
+                keycap.indicatorVisible = shiftState == ShiftState.CAPS_LOCKED
+                if (layoutDependsOnShift()) {
+                    // Devanagari: the key switches between consonants and vowels, so it says so.
+                    val label = if (shiftState == ShiftState.UNSHIFTED) "अ आ" else "क ख"
+                    shiftKeyIcon = null
+                    keyLayout.addView(
+                        labelView(label, KeyLabelMetrics.functionTextPx(rowH, density, label, userScale), spec.textColor, labelTypefaceStrong).apply {
+                            contentDescription = if (shiftState == ShiftState.UNSHIFTED) "Switch to vowels" else "Switch to consonants"
+                        }
+                    )
+                } else {
+                    val shiftIcon = iconView(shiftIconFor(shiftState), spec.textColor, "Shift")
+                    shiftKeyIcon = shiftIcon
+                    keyLayout.addView(shiftIcon)
                 }
-                shiftKeyIcon = shiftIcon
-                shiftKeyBackground = bgDrawable
-                keyLayout.addView(shiftIcon)
             }
             KeyType.BACKSPACE -> {
-                val delIcon = ImageView(context).apply {
-                    setImageResource(R.drawable.ic_backspace)
-                    setColorFilter(currentTheme.textColorPrimary)
-                    val pad = dpToPx(11)
-                    setPadding(pad, pad, pad, pad)
-                    layoutParams = FrameLayout.LayoutParams(FrameLayout.LayoutParams.MATCH_PARENT, FrameLayout.LayoutParams.MATCH_PARENT)
-                }
-                keyLayout.addView(delIcon)
+                keyLayout.addView(iconView(R.drawable.ic_backspace, spec.textColor, "Delete").apply {
+                    // Backspace glyph is visually heavier; trim it so it matches shift.
+                    layoutParams = FrameLayout.LayoutParams((iconSize * 0.92f).toInt(), (iconSize * 0.92f).toInt(), Gravity.CENTER)
+                })
             }
             KeyType.ENTER -> {
                 val (enterIconRes, enterText) = getActionInfo()
                 if (enterIconRes != 0) {
-                    val enterIcon = ImageView(context).apply {
-                        setImageResource(enterIconRes)
-                        setColorFilter(currentTheme.actionTextColor)
-                        val pad = dpToPx(11)
-                        setPadding(pad, pad, pad, pad)
-                        layoutParams = FrameLayout.LayoutParams(FrameLayout.LayoutParams.MATCH_PARENT, FrameLayout.LayoutParams.MATCH_PARENT)
-                    }
-                    keyLayout.addView(enterIcon)
+                    keyLayout.addView(iconView(enterIconRes, spec.textColor, enterText))
                 } else {
-                    val enterTv = TextView(context).apply {
-                        text = enterText
-                        textSize = 14f
-                        gravity = Gravity.CENTER
-                        setTextColor(currentTheme.actionTextColor)
-                        typeface = Typeface.DEFAULT_BOLD
-                        layoutParams = FrameLayout.LayoutParams(FrameLayout.LayoutParams.MATCH_PARENT, FrameLayout.LayoutParams.MATCH_PARENT)
-                    }
-                    keyLayout.addView(enterTv)
+                    keyLayout.addView(labelView(enterText, KeyLabelMetrics.functionTextPx(rowH, density, enterText, userScale), spec.textColor, labelTypefaceStrong))
                 }
             }
             KeyType.SPACE -> {
                 val currentLang = KeyboardLanguage.fromId(preferences.currentLanguage)
-                val spaceTv = TextView(context).apply {
-                    text = currentLang.spaceLabel
-                    textSize = 14f
-                    gravity = Gravity.CENTER
-                    setTextColor(currentTheme.textColorSecondary)
-                    typeface = Typeface.DEFAULT_BOLD
-                    layoutParams = FrameLayout.LayoutParams(FrameLayout.LayoutParams.MATCH_PARENT, FrameLayout.LayoutParams.MATCH_PARENT)
-                }
-                keyLayout.addView(spaceTv)
+                keyLayout.addView(labelView(currentLang.spaceLabel, KeyLabelMetrics.spaceLabelPx(rowH, density, userScale), spec.secondaryTextColor, labelTypeface))
             }
             KeyType.EMOJI -> {
-                val emojiTv = TextView(context).apply {
-                    text = "😀"
-                    textSize = 20f
-                    gravity = Gravity.CENTER
-                    layoutParams = FrameLayout.LayoutParams(FrameLayout.LayoutParams.MATCH_PARENT, FrameLayout.LayoutParams.MATCH_PARENT)
-                }
-                keyLayout.addView(emojiTv)
+                keyLayout.addView(labelView("😀", KeyLabelMetrics.iconPx(rowH, density, userScale) * 0.85f, spec.textColor, Typeface.DEFAULT).apply {
+                    contentDescription = "Emoji"
+                })
             }
             KeyType.MODE_CHANGE -> {
-                val modeTv = TextView(context).apply {
-                    text = key.primaryText
-                    textSize = 15f
-                    gravity = Gravity.CENTER
-                    setTextColor(currentTheme.textColorPrimary)
-                    typeface = Typeface.DEFAULT_BOLD
-                    layoutParams = FrameLayout.LayoutParams(FrameLayout.LayoutParams.MATCH_PARENT, FrameLayout.LayoutParams.MATCH_PARENT)
-                }
-                keyLayout.addView(modeTv)
+                keyLayout.addView(labelView(key.primaryText, KeyLabelMetrics.functionTextPx(rowH, density, key.primaryText, userScale), spec.textColor, labelTypefaceStrong))
             }
             KeyType.LANGUAGE_SWITCH -> {
-                val globeIcon = ImageView(context).apply {
-                    setImageResource(R.drawable.ic_globe)
-                    setColorFilter(currentTheme.textColorPrimary)
-                    val pad = dpToPx(11)
-                    setPadding(pad, pad, pad, pad)
-                    layoutParams = FrameLayout.LayoutParams(FrameLayout.LayoutParams.MATCH_PARENT, FrameLayout.LayoutParams.MATCH_PARENT)
-                }
-                keyLayout.addView(globeIcon)
+                keyLayout.addView(iconView(R.drawable.ic_globe, spec.textColor, "Switch language"))
             }
             else -> {
                 if (keyboardMode == KeyboardMode.DIALPAD) {
@@ -719,39 +815,28 @@ class CustomKeyboardView @JvmOverloads constructor(
                         gravity = Gravity.CENTER
                         layoutParams = FrameLayout.LayoutParams(FrameLayout.LayoutParams.MATCH_PARENT, FrameLayout.LayoutParams.MATCH_PARENT)
                     }
-                    val mainTv = TextView(context).apply {
-                        text = key.primaryText
-                        textSize = 24f
-                        gravity = Gravity.CENTER
-                        setTextColor(currentTheme.textColorPrimary)
-                        typeface = Typeface.DEFAULT_BOLD
-                    }
-                    container.addView(mainTv)
-
+                    container.addView(labelView(key.primaryText, (rowH * 0.40f * userScale).coerceAtMost(30f * density), spec.textColor, labelTypefaceStrong).apply {
+                        layoutParams = LinearLayout.LayoutParams(LinearLayout.LayoutParams.WRAP_CONTENT, LinearLayout.LayoutParams.WRAP_CONTENT)
+                    })
                     if (key.altText.isNotEmpty()) {
-                        val subTv = TextView(context).apply {
-                            text = key.altText
-                            textSize = 11f
-                            gravity = Gravity.CENTER
-                            setTextColor(currentTheme.textColorSecondary)
-                            typeface = Typeface.DEFAULT_BOLD
-                        }
-                        container.addView(subTv)
+                        container.addView(labelView(key.altText, KeyLabelMetrics.altHintPx(rowH, density, userScale), spec.secondaryTextColor, labelTypeface).apply {
+                            layoutParams = LinearLayout.LayoutParams(LinearLayout.LayoutParams.WRAP_CONTENT, LinearLayout.LayoutParams.WRAP_CONTENT)
+                        })
                     }
                     keyLayout.addView(container)
                 } else {
                     val hasAlt = key.altText.isNotEmpty() && keyboardMode == KeyboardMode.ALPHA
-                    val mainTv = TextView(context).apply {
-                        val charText = if (shiftState != ShiftState.UNSHIFTED) key.shiftText else key.primaryText
-                        text = charText
-                        textSize = if (hasAlt) 19.5f else 22.5f
-                        typeface = Typeface.DEFAULT_BOLD
-                        gravity = if (hasAlt) (Gravity.CENTER_HORIZONTAL or Gravity.BOTTOM) else Gravity.CENTER
+                    val charText = if (shiftState != ShiftState.UNSHIFTED) key.shiftText else key.primaryText
+                    val mainTv = labelView(
+                        charText,
+                        KeyLabelMetrics.letterPx(rowH, density, key.primaryText, hasAlt, currentTheme.typography, userScale),
+                        spec.textColor,
+                        labelTypeface
+                    ).apply {
                         if (hasAlt) {
-                            setPadding(0, 0, 0, dpToPx(3))
+                            // Nudge the main glyph down a touch so the corner hint has room.
+                            setPadding(0, (rowH * 0.08f).toInt(), 0, 0)
                         }
-                        setTextColor(currentTheme.textColorPrimary)
-                        layoutParams = FrameLayout.LayoutParams(FrameLayout.LayoutParams.MATCH_PARENT, FrameLayout.LayoutParams.MATCH_PARENT)
                     }
                     if (key.type == KeyType.CHARACTER) {
                         letterKeyViews.add(Pair(mainTv, key))
@@ -761,11 +846,13 @@ class CustomKeyboardView @JvmOverloads constructor(
                     if (hasAlt) {
                         val altTv = TextView(context).apply {
                             text = key.altText
-                            textSize = 9.5f
+                            setTextSize(TypedValue.COMPLEX_UNIT_PX, KeyLabelMetrics.altHintPx(rowH, density, userScale))
                             gravity = Gravity.END or Gravity.TOP
-                            setTextColor(currentTheme.textColorSecondary)
-                            typeface = Typeface.DEFAULT_BOLD
-                            setPadding(0, dpToPx(2), dpToPx(4), 0)
+                            includeFontPadding = false
+                            setTextColor(spec.secondaryTextColor)
+                            typeface = labelTypeface
+                            val inset = (spec.gapHPx + spec.skirtXPx + 4 * density).toInt()
+                            setPadding(0, (spec.gapVPx + spec.skirtTopPx + 3 * density).toInt(), inset, 0)
                             layoutParams = FrameLayout.LayoutParams(FrameLayout.LayoutParams.MATCH_PARENT, FrameLayout.LayoutParams.MATCH_PARENT)
                         }
                         keyLayout.addView(altTv)
@@ -795,6 +882,7 @@ class CustomKeyboardView @JvmOverloads constructor(
     // ---------------------------------------------------------------------------------------------
     private fun attachTouchListener(view: View, key: KeyModel) {
         var downX = 0f
+        var downY = 0f
         var cursorMoved = false
         var lastCursorMoveX = 0f
         var isLongPressHandled = false
@@ -802,60 +890,65 @@ class CustomKeyboardView @JvmOverloads constructor(
         view.setOnTouchListener { v, event ->
             when (event.actionMasked) {
                 MotionEvent.ACTION_DOWN, MotionEvent.ACTION_POINTER_DOWN -> {
-                    // 1. Immediately cancel any pending long press so it can NEVER retroactively delete characters!
-                    cancelPendingLongPress()
-
-                    // 2. Multi-touch space handling: if space is held down and another key touches down, commit space immediately!
-                    if (isSpaceHeld && !isSpaceCommitted && !cursorMoved && key.type != KeyType.SPACE) {
+                    // 1. Commit any previously held key from another finger before processing this one
+                    if (key.type != KeyType.SPACE && isSpaceHeld && !isSpaceCommitted && !cursorMoved) {
                         isSpaceCommitted = true
                         actionListener?.onSpace()
                     }
+                    if (pendingKeyModel != null && !isPendingKeyCommitted) {
+                        commitPendingKeyIfNeeded()
+                    } else {
+                        cancelPendingLongPress()
+                    }
 
                     downX = event.rawX
+                    downY = event.rawY
                     lastCursorMoveX = event.rawX
                     cursorMoved = false
                     isLongPressHandled = false
 
                     performHapticFeedback()
                     performAudioFeedback()
+                    v.drawableHotspotChanged(event.getX(event.actionIndex), event.getY(event.actionIndex))
                     animateKeyPress(v, true)
 
                     if (key.type == KeyType.CHARACTER || key.type == KeyType.COMMA || key.type == KeyType.PERIOD) {
-                        // Instant 0ms key output on touch-down so fast typing NEVER misses a letter
-                        handleKeyClick(key)
+                        pendingKeyView = v
+                        pendingKeyModel = key
+                        isPendingKeyCommitted = false
+                        isPendingKeyLongPressed = false
+
+                        val text = if (shiftState != ShiftState.UNSHIFTED) key.shiftText else key.primaryText
                         if (preferences.isPopupEnabled) {
-                            val text = if (shiftState != ShiftState.UNSHIFTED) key.shiftText else key.primaryText
                             showKeyPopup(v, text)
                         }
 
                         // Schedule long press only if key has popups or altText
-                        if (key.popupChars.isNotEmpty() || key.altText.isNotEmpty()) {
+                        val hasLongPress = key.popupChars.isNotEmpty() || key.altText.isNotEmpty()
+                        if (hasLongPress) {
                             activeLongPressKey = key
                             val lpr = Runnable {
-                                if (activeLongPressKey == key && !cursorMoved) {
+                                if (activeLongPressKey == key && pendingKeyModel == key && !isPendingKeyCommitted && !cursorMoved) {
                                     isLongPressHandled = true
+                                    isPendingKeyLongPressed = true
                                     dismissPopup()
-                                    if (key.popupChars.isNotEmpty()) {
-                                        if (key.popupChars.size > 1) {
-                                            showAccentsPopup(view, key.popupChars)
-                                        } else {
-                                            performHapticFeedback()
-                                            performAudioFeedback()
-                                            actionListener?.onBackspace()
-                                            actionListener?.onTextKey(key.popupChars[0])
-                                        }
-                                    } else if (key.altText.isNotEmpty()) {
-                                        performHapticFeedback()
-                                        performAudioFeedback()
-                                        actionListener?.onBackspace()
-                                        actionListener?.onTextKey(key.altText)
+                                    performHapticFeedback()
+                                    performAudioFeedback()
+                                    val chars = when {
+                                        key.popupChars.isNotEmpty() -> key.popupChars
+                                        key.altText.isNotEmpty() -> listOf(key.altText)
+                                        else -> emptyList()
+                                    }
+                                    if (chars.isNotEmpty()) {
+                                        showAccentsPopup(view, chars)
                                     }
                                 }
                             }
                             activeLongPressRunnable = lpr
-                            handler.postDelayed(lpr, 450)
+                            handler.postDelayed(lpr, 500)
                         }
                     } else if (key.type == KeyType.BACKSPACE) {
+                        commitPendingKeyIfNeeded()
                         isBackspaceHeld = true
                         actionListener?.onBackspace()
                         handler.postDelayed(backspaceRepeatRunnable, 350)
@@ -871,6 +964,7 @@ class CustomKeyboardView @JvmOverloads constructor(
                         }
                         handler.postDelayed(spaceLongPressRunnable!!, 500)
                     } else if (key.type == KeyType.SHIFT || key.type == KeyType.MODE_CHANGE || key.type == KeyType.EMOJI || key.type == KeyType.ENTER) {
+                        commitPendingKeyIfNeeded()
                         handleKeyClick(key)
                     }
                     true
@@ -878,8 +972,9 @@ class CustomKeyboardView @JvmOverloads constructor(
 
                 MotionEvent.ACTION_MOVE -> {
                     val dx = event.rawX - downX
+                    val dy = event.rawY - downY
 
-                    if (key.type == KeyType.SPACE && abs(dx) > dpToPx(24)) {
+                    if (key.type == KeyType.SPACE && abs(dx) > dpToPx(36)) {
                         spaceLongPressRunnable?.let { handler.removeCallbacks(it) }
                         val diff = event.rawX - lastCursorMoveX
                         val step = dpToPx(14)
@@ -890,6 +985,8 @@ class CustomKeyboardView @JvmOverloads constructor(
                             cursorMoved = true
                             lastCursorMoveX = event.rawX
                         }
+                    } else if (key.type != KeyType.SPACE && !isLongPressHandled && (abs(dx) > dpToPx(18) || abs(dy) > dpToPx(18))) {
+                        cancelPendingLongPress()
                     }
 
                     if (isLongPressHandled && accentsPopupWindow?.isShowing == true) {
@@ -898,33 +995,60 @@ class CustomKeyboardView @JvmOverloads constructor(
                     true
                 }
 
-                MotionEvent.ACTION_UP, MotionEvent.ACTION_POINTER_UP, MotionEvent.ACTION_CANCEL -> {
+                MotionEvent.ACTION_UP, MotionEvent.ACTION_POINTER_UP -> {
+                    animateKeyPress(v, false)
+                    handler.removeCallbacks(backspaceRepeatRunnable)
+                    spaceLongPressRunnable?.let { handler.removeCallbacks(it) }
+                    isBackspaceHeld = false
+                    dismissPopup()
+
+                    if (key.type == KeyType.CHARACTER || key.type == KeyType.COMMA || key.type == KeyType.PERIOD) {
+                        cancelPendingLongPress()
+                        if (isLongPressHandled && accentsPopupWindow?.isShowing == true) {
+                            if (activeAccentIndex in currentPopupChars.indices) {
+                                val accent = currentPopupChars[activeAccentIndex]
+                                actionListener?.onTextKey(accent)
+                            }
+                            dismissAccentsPopup()
+                            isPendingKeyCommitted = true
+                            pendingKeyModel = null
+                            pendingKeyView = null
+                        } else if (pendingKeyModel == key && !isPendingKeyCommitted) {
+                            isPendingKeyCommitted = true
+                            handleKeyClick(key)
+                            pendingKeyModel = null
+                            pendingKeyView = null
+                        }
+                    } else if (key.type == KeyType.SPACE) {
+                        cancelPendingLongPress()
+                        if (!isSpaceCommitted && !cursorMoved && !isLongPressHandled) {
+                            isSpaceCommitted = true
+                            actionListener?.onSpace()
+                        }
+                        isSpaceHeld = false
+                    }
+
+                    if (pendingShiftRender) {
+                        pendingShiftRender = false
+                        renderKeyboardLayout()
+                    }
+                    true
+                }
+
+                MotionEvent.ACTION_CANCEL -> {
                     animateKeyPress(v, false)
                     cancelPendingLongPress()
                     handler.removeCallbacks(backspaceRepeatRunnable)
                     spaceLongPressRunnable?.let { handler.removeCallbacks(it) }
                     isBackspaceHeld = false
                     dismissPopup()
-
-                    if (event.actionMasked == MotionEvent.ACTION_UP || event.actionMasked == MotionEvent.ACTION_POINTER_UP) {
-                        if (isLongPressHandled && accentsPopupWindow?.isShowing == true) {
-                            if (activeAccentIndex in currentPopupChars.indices) {
-                                val accent = currentPopupChars[activeAccentIndex]
-                                actionListener?.onBackspace()
-                                actionListener?.onTextKey(accent)
-                            }
-                            dismissAccentsPopup()
-                        } else if (key.type == KeyType.SPACE) {
-                            if (!isSpaceCommitted && !cursorMoved && !isLongPressHandled) {
-                                isSpaceCommitted = true
-                                actionListener?.onSpace()
-                            }
-                        }
-                    } else {
-                        dismissAccentsPopup()
-                    }
+                    dismissAccentsPopup()
                     if (key.type == KeyType.SPACE) {
                         isSpaceHeld = false
+                    }
+                    if (pendingKeyModel == key) {
+                        pendingKeyModel = null
+                        pendingKeyView = null
                     }
                     true
                 }
@@ -940,7 +1064,13 @@ class CustomKeyboardView @JvmOverloads constructor(
                 actionListener?.onTextKey(text)
                 if (shiftState == ShiftState.SHIFTED_ONCE) {
                     shiftState = ShiftState.UNSHIFTED
-                    updateKeyLabelsForShift()
+                    if (layoutDependsOnShift()) {
+                        // Rebuilding now would detach the key under the finger (killing its popup
+                        // and long-press); do it when the touch ends.
+                        pendingShiftRender = true
+                    } else {
+                        updateKeyLabelsForShift()
+                    }
                 }
             }
             KeyType.SPACE -> {
@@ -958,7 +1088,7 @@ class CustomKeyboardView @JvmOverloads constructor(
                     }
                 }
                 lastShiftPressTime = now
-                updateKeyLabelsForShift()
+                applyShiftStateChange()
             }
             KeyType.MODE_CHANGE -> {
                 keyboardMode = when (key.primaryText) {
@@ -989,6 +1119,7 @@ class CustomKeyboardView @JvmOverloads constructor(
     private fun toggleLanguage() {
         val nextLang = if (preferences.currentLanguage == "en") "hi" else "en"
         preferences.currentLanguage = nextLang
+        shiftState = ShiftState.UNSHIFTED
         renderKeyboardLayout()
     }
 
@@ -1004,6 +1135,7 @@ class CustomKeyboardView @JvmOverloads constructor(
         builder.setTitle("Select Keyboard Language")
         builder.setSingleChoiceItems(languages, currentIdx) { dialog, which ->
             preferences.currentLanguage = langIds[which]
+            shiftState = ShiftState.UNSHIFTED
             renderKeyboardLayout()
             dialog.dismiss()
         }
@@ -1032,19 +1164,32 @@ class CustomKeyboardView @JvmOverloads constructor(
         view.isPressed = isPressed
     }
 
+    private fun popupBackground(): GradientDrawable = GradientDrawable().apply {
+        val style = currentTheme.keyStyle
+        cornerRadius = dpToPx(if (style.shape == com.example.mykeyboard.theme.KeyShape.NOTCHED) 3 else 12).toFloat()
+        setColor(currentTheme.popupBgColor)
+        setStroke(dpToPx(1), currentTheme.rippleColor)
+    }
+
+    /** Popups are created once; re-skin them when the theme changes instead of rebuilding. */
+    private fun refreshPopupStyles() {
+        popupTextView?.apply {
+            background = popupBackground()
+            typeface = labelTypefaceStrong
+            setTextColor(currentTheme.popupTextColor)
+        }
+        accentsContainer?.background = popupBackground()
+    }
+
     private fun initKeyPopup() {
         val popupView = TextView(context).apply {
             gravity = Gravity.CENTER
             textSize = 28f
-            typeface = Typeface.DEFAULT_BOLD
+            typeface = labelTypefaceStrong
+            includeFontPadding = false
             val pad = dpToPx(8)
             setPadding(pad, pad, pad, pad)
-            val bg = GradientDrawable().apply {
-                cornerRadius = dpToPx(12).toFloat()
-                setColor(currentTheme.popupBgColor)
-                setStroke(dpToPx(1), currentTheme.rippleColor)
-            }
-            background = bg
+            background = popupBackground()
         }
         popupTextView = popupView
         popupWindow = PopupWindow(popupView, dpToPx(56), dpToPx(64)).apply {
@@ -1087,12 +1232,7 @@ class CustomKeyboardView @JvmOverloads constructor(
             gravity = Gravity.CENTER
             val pad = dpToPx(4)
             setPadding(pad, pad, pad, pad)
-            val bg = GradientDrawable().apply {
-                cornerRadius = dpToPx(12).toFloat()
-                setColor(currentTheme.popupBgColor)
-                setStroke(dpToPx(1), currentTheme.rippleColor)
-            }
-            background = bg
+            background = popupBackground()
         }
         accentsPopupWindow = PopupWindow(accentsContainer, LayoutParams.WRAP_CONTENT, dpToPx(52)).apply {
             isTouchable = false
@@ -1185,20 +1325,24 @@ class CustomKeyboardView @JvmOverloads constructor(
     // Emoji & Clipboard View Switching
     // ---------------------------------------------------------------------------------------------
     private fun showEmojiKeyboard() {
+        if (emojiSearchActive) endEmojiSearch(reopenEmoji = false)
         keyboardMode = KeyboardMode.EMOJI
         rowsLayout.visibility = View.GONE
         clipboardView?.visibility = View.GONE
+        // The emoji panel brings its own category bar; give the strip's height to browsing.
+        suggestionContainer.visibility = View.GONE
 
-        val targetContentH = getStandardContentHeight()
+        val keyboardTotal = getEmojiPanelHeightHint()
+        val bottomPad = getCalculatedBottomPadding()
 
         if (emojiKeyboardView == null) {
             emojiKeyboardView = EmojiKeyboardView(context).apply {
-                applyTheme(currentTheme)
+                applyTheme(currentTheme, keycapResolver, keyMotion)
                 setEmojiListener(object : EmojiKeyboardView.EmojiListener {
                     override fun onEmojiSelected(emoji: String) {
                         performHapticFeedback()
                         performAudioFeedback()
-                        actionListener?.onTextKey(emoji)
+                        inputListener()?.onTextKey(emoji)
                     }
 
                     override fun onBackToAlpha() {
@@ -1209,13 +1353,18 @@ class CustomKeyboardView @JvmOverloads constructor(
                     override fun onBackspace() {
                         performHapticFeedback()
                         performAudioFeedback()
-                        actionListener?.onBackspace()
+                        inputListener()?.onBackspace()
                     }
 
                     override fun onSpace() {
                         performHapticFeedback()
                         performAudioFeedback()
-                        actionListener?.onSpace()
+                        inputListener()?.onSpace()
+                    }
+
+                    override fun onSearchRequested() {
+                        performHapticFeedback()
+                        startEmojiSearch()
                     }
                 })
             }
@@ -1226,20 +1375,171 @@ class CustomKeyboardView @JvmOverloads constructor(
                     LayoutParams.WRAP_CONTENT
                 )
             )
-            val defaultBottomPad = getCalculatedBottomPadding()
-            emojiKeyboardView?.updateFixedContentHeight(targetContentH, defaultBottomPad)
-        } else {
-            val defaultBottomPad = getCalculatedBottomPadding()
-            emojiKeyboardView?.updateFixedContentHeight(targetContentH, defaultBottomPad)
-            emojiKeyboardView?.visibility = View.VISIBLE
         }
+        emojiKeyboardView?.updateFixedContentHeight(keyboardTotal, bottomPad)
+        emojiKeyboardView?.visibility = View.VISIBLE
+    }
+
+    // ---------------------------------------------------------------------------------------------
+    // Offline emoji search: letters typed on the normal keyboard go into a query shown in the
+    // strip instead of the app; results appear as a scrollable row.
+    // ---------------------------------------------------------------------------------------------
+    private var emojiSearchActive = false
+    private val emojiSearchQuery = StringBuilder()
+    private var searchListenerBackup: KeyboardActionListener? = null
+    private var searchStrip: LinearLayout? = null
+    private var searchQueryTv: TextView? = null
+    private var searchResultsRow: LinearLayout? = null
+    private var searchResultsScroll: android.widget.HorizontalScrollView? = null
+
+    /** The listener that talks to the app, even while search intercepts key input. */
+    private fun inputListener(): KeyboardActionListener? = if (emojiSearchActive) searchListenerBackup else actionListener
+
+    private val searchInterceptor = object : KeyboardActionListener {
+        override fun onTextKey(text: String) { emojiSearchQuery.append(text); updateEmojiSearch() }
+        override fun onBackspace() {
+            if (emojiSearchQuery.isEmpty()) { endEmojiSearch(reopenEmoji = true); return }
+            val cp = emojiSearchQuery.codePointBefore(emojiSearchQuery.length)
+            emojiSearchQuery.setLength(emojiSearchQuery.length - Character.charCount(cp))
+            updateEmojiSearch()
+        }
+        override fun onSpace() { if (emojiSearchQuery.isNotEmpty() && emojiSearchQuery.last() != ' ') { emojiSearchQuery.append(' '); updateEmojiSearch() } }
+        override fun onEnter(actionId: Int) {
+            val first = com.example.mykeyboard.model.EmojiData.search(emojiSearchQuery.toString(), 1).firstOrNull()
+            if (first != null) commitSearchEmoji(first) else endEmojiSearch(reopenEmoji = true)
+        }
+        override fun onOpenEmoji() { endEmojiSearch(reopenEmoji = true) }
+        override fun onOpenSettings() { searchListenerBackup?.onOpenSettings() }
+        override fun onMoveCursor(offset: Int) {}
+        override fun onPasteClipboard(text: String) {}
+        override fun onUndo() {}
+        override fun onRedo() {}
+        override fun onAddWordToDictionary(word: String) {}
+        override fun onDeleteSuggestedWord(word: String) {}
+        override fun onReplaceText(oldText: String, newText: String) {}
+    }
+
+    private fun startEmojiSearch() {
+        if (emojiSearchActive) return
+        searchListenerBackup = actionListener
+        actionListener = searchInterceptor
+        emojiSearchActive = true
+        emojiSearchQuery.setLength(0)
+        buildSearchStrip()
+        toolbarActionsLayout.visibility = View.GONE
+        candidatesLayout.visibility = View.GONE
+        searchStrip?.visibility = View.VISIBLE
+        showAlphaKeyboard()
+        com.example.mykeyboard.model.EmojiData.ensureLoaded(context) { updateEmojiSearch() }
+        updateEmojiSearch()
+    }
+
+    private fun endEmojiSearch(reopenEmoji: Boolean) {
+        if (!emojiSearchActive) return
+        emojiSearchActive = false
+        // Stop a held backspace so its repeat can't continue into the app's text.
+        isBackspaceHeld = false
+        handler.removeCallbacks(backspaceRepeatRunnable)
+        actionListener = searchListenerBackup
+        searchListenerBackup = null
+        searchStrip?.visibility = View.GONE
+        toolbarActionsLayout.visibility = View.VISIBLE
+        candidatesLayout.visibility = View.VISIBLE
+        if (reopenEmoji) showEmojiKeyboard()
+    }
+
+    private fun commitSearchEmoji(emoji: String) {
+        performHapticFeedback()
+        performAudioFeedback()
+        searchListenerBackup?.onTextKey(emoji)
+        KeyboardPreferences(context).recordRecentEmoji(emoji)
+    }
+
+    private fun buildSearchStrip() {
+        searchStrip?.let { suggestionContainer.removeView(it) }
+        val pal = currentTheme.palette
+        val strip = LinearLayout(context).apply {
+            orientation = HORIZONTAL
+            gravity = Gravity.CENTER_VERTICAL
+            layoutParams = LayoutParams(0, LayoutParams.MATCH_PARENT, 1f)
+        }
+        strip.addView(ImageView(context).apply {
+            setImageResource(R.drawable.ic_clear)
+            setColorFilter(pal.suggestionText)
+            contentDescription = "Close emoji search"
+            val p = dpToPx(7)
+            setPadding(p, p, p, p)
+            layoutParams = LayoutParams(dpToPx(32), dpToPx(32)).apply { marginEnd = dpToPx(4) }
+            setOnClickListener { performHapticFeedback(); endEmojiSearch(reopenEmoji = true) }
+        })
+        searchQueryTv = TextView(context).apply {
+            textSize = 14f
+            maxLines = 1
+            gravity = Gravity.CENTER_VERTICAL
+            setPadding(dpToPx(12), 0, dpToPx(12), 0)
+            minWidth = dpToPx(96)
+            maxWidth = (resources.displayMetrics.widthPixels * 0.38f).toInt()
+            ellipsize = android.text.TextUtils.TruncateAt.START
+            background = GradientDrawable().apply { cornerRadius = dpToPx(16).toFloat(); setColor(pal.chipBg) }
+            layoutParams = LayoutParams(LayoutParams.WRAP_CONTENT, dpToPx(32)).apply { marginEnd = dpToPx(4) }
+        }
+        strip.addView(searchQueryTv)
+        searchResultsRow = LinearLayout(context).apply { orientation = HORIZONTAL; gravity = Gravity.CENTER_VERTICAL }
+        searchResultsScroll = android.widget.HorizontalScrollView(context).apply {
+            isHorizontalScrollBarEnabled = false
+            layoutParams = LayoutParams(0, LayoutParams.MATCH_PARENT, 1f)
+            addView(searchResultsRow, android.view.ViewGroup.LayoutParams(android.view.ViewGroup.LayoutParams.WRAP_CONTENT, android.view.ViewGroup.LayoutParams.MATCH_PARENT))
+        }
+        strip.addView(searchResultsScroll)
+        searchStrip = strip
+        suggestionContainer.addView(strip)
+    }
+
+    private fun updateEmojiSearch() {
+        val pal = currentTheme.palette
+        val query = emojiSearchQuery.toString()
+        searchQueryTv?.apply {
+            if (query.isEmpty()) {
+                text = "🔍  Search emoji"
+                setTextColor(ThemeColor.withAlpha(pal.suggestionText, 0.6f))
+            } else {
+                text = "🔍  $query"
+                setTextColor(pal.suggestionText)
+            }
+        }
+        val row = searchResultsRow ?: return
+        row.removeAllViews()
+        val results = if (query.isBlank()) KeyboardPreferences(context).recentEmojis.take(24)
+        else com.example.mykeyboard.model.EmojiData.search(query, 48)
+        if (results.isEmpty() && query.isNotBlank()) {
+            row.addView(TextView(context).apply {
+                text = if (com.example.mykeyboard.model.EmojiData.isLoaded) "No matches" else "Loading…"
+                textSize = 13f
+                setTextColor(ThemeColor.withAlpha(pal.suggestionText, 0.6f))
+                setPadding(dpToPx(8), 0, dpToPx(8), 0)
+            })
+        }
+        val cell = dpToPx(40)
+        results.forEach { e ->
+            row.addView(TextView(context).apply {
+                text = e
+                gravity = Gravity.CENTER
+                textSize = 22f
+                includeFontPadding = false
+                layoutParams = LayoutParams(cell, cell)
+                setOnClickListener { commitSearchEmoji(e) }
+            })
+        }
+        searchResultsScroll?.scrollTo(0, 0)
     }
 
     private fun showClipboardView() {
+        if (emojiSearchActive) endEmojiSearch(reopenEmoji = false)
+        suggestionContainer.visibility = View.VISIBLE
         rowsLayout.visibility = View.GONE
         emojiKeyboardView?.visibility = View.GONE
 
-        val targetContentH = getStandardContentHeight()
+        val targetContentH = getPanelContentHeight()
 
         if (clipboardView == null) {
             clipboardView = ClipboardView(context).apply {
@@ -1264,15 +1564,16 @@ class CustomKeyboardView @JvmOverloads constructor(
                     LayoutParams.WRAP_CONTENT
                 )
             )
-            clipboardView?.updateFixedContentHeight(targetContentH)
+            clipboardView?.updateFixedContentHeight(targetContentH, getCalculatedBottomPadding())
         } else {
-            clipboardView?.updateFixedContentHeight(targetContentH)
+            clipboardView?.updateFixedContentHeight(targetContentH, getCalculatedBottomPadding())
             clipboardView?.refreshClips()
             clipboardView?.visibility = View.VISIBLE
         }
     }
 
     private fun showAlphaKeyboard() {
+        suggestionContainer.visibility = View.VISIBLE
         keyboardMode = KeyboardMode.ALPHA
         emojiKeyboardView?.visibility = View.GONE
         clipboardView?.visibility = View.GONE
@@ -1281,6 +1582,8 @@ class CustomKeyboardView @JvmOverloads constructor(
     }
 
     private fun showDialpadKeyboard() {
+        if (emojiSearchActive) endEmojiSearch(reopenEmoji = false)
+        suggestionContainer.visibility = View.VISIBLE
         keyboardMode = KeyboardMode.DIALPAD
         emojiKeyboardView?.visibility = View.GONE
         clipboardView?.visibility = View.GONE
@@ -1315,18 +1618,75 @@ class CustomKeyboardView @JvmOverloads constructor(
         } catch (_: Exception) {}
     }
 
-    private var dynamicBottomInset: Int = -1
+    // ---------------------------------------------------------------------------------------------
+    // System bar (navigation) spacing
+    //
+    // The IME window is laid out edge-to-edge by MyKeyboardService, so it may extend underneath the
+    // navigation bar. We reserve exactly the space the system reports – full height for 3-button
+    // bars, the handle height in gesture mode, 0 when the window already sits above the bar – and
+    // the keyboard background paints through that area, so there is never an empty black strip.
+    // ---------------------------------------------------------------------------------------------
 
-    private fun getCalculatedBottomPadding(): Int {
-        return if (dynamicBottomInset > 0) {
-            // Live Window Insets from Android WindowManager:
-            // If bottom inset > 0 (e.g. 24dp for gesture bar or 48dp for edge-to-edge 3-button), use it directly to prevent overlap!
-            dynamicBottomInset
-        } else {
-            // If bottom inset == 0 (window already sits above nav bar, or hardware buttons), use compact 6dp margin to avoid black strip!
-            dpToPx(6)
+    private fun readSystemInsets(insets: androidx.core.view.WindowInsetsCompat) {
+        val nav = insets.getInsets(androidx.core.view.WindowInsetsCompat.Type.navigationBars())
+        // tappableElement is 0 where only a gesture handle overlays us, and equals the bar height
+        // where real buttons sit, so the larger of the two is what must stay free of keys.
+        val tappable = insets.getInsets(androidx.core.view.WindowInsetsCompat.Type.tappableElement())
+        // Tablets/foldables report the taskbar here (up to ~90dp), so the clamp only guards
+        // against absurd values.
+        val limit = dpToPx(120)
+        val bottom = maxOf(nav.bottom, tappable.bottom).coerceIn(0, limit)
+        val left = maxOf(nav.left, tappable.left).coerceIn(0, limit)
+        val right = maxOf(nav.right, tappable.right).coerceIn(0, limit)
+        if (bottom != systemBottomInset || left != systemLeftInset || right != systemRightInset) {
+            systemBottomInset = bottom
+            systemLeftInset = left
+            systemRightInset = right
+            applyEdgeSpacing()
         }
     }
+
+    override fun onAttachedToWindow() {
+        super.onAttachedToWindow()
+        // Some OEM ROMs skip the first dispatch for IME windows; read what the window already knows.
+        androidx.core.view.ViewCompat.getRootWindowInsets(this)?.let { readSystemInsets(it) }
+        androidx.core.view.ViewCompat.requestApplyInsets(this)
+    }
+
+    /** Re-reads the navigation bar state (called when the keyboard is shown again). */
+    fun refreshWindowInsets() {
+        androidx.core.view.ViewCompat.getRootWindowInsets(this)?.let { readSystemInsets(it) }
+        androidx.core.view.ViewCompat.requestApplyInsets(this)
+    }
+
+    /** Applies the reserved space to every panel that reaches the bottom of the window. */
+    private fun applyEdgeSpacing() {
+        val bottomPad = getCalculatedBottomPadding()
+        // Side bars (landscape 3-button) are handled once, for every panel; the background still
+        // paints full-bleed because padding only insets children.
+        setPadding(systemLeftInset, 0, systemRightInset, 0)
+        rowsLayout.setPadding(dpToPx(8), dpToPx(3), dpToPx(8), bottomPad)
+        // Insets can arrive mid-layout; resize the panels on the next frame so the emoji grid is
+        // never told to rebind while RecyclerView is laying out. Only ever one pending pass.
+        panelResizeRunnable?.let { removeCallbacks(it) }
+        val resize = Runnable {
+            panelResizeRunnable = null
+            emojiKeyboardView?.updateFixedContentHeight(getEmojiPanelHeightHint(), bottomPad)
+            clipboardView?.updateFixedContentHeight(getPanelContentHeight(), bottomPad)
+        }
+        panelResizeRunnable = resize
+        post(resize)
+        requestLayout()
+    }
+
+    private fun getCalculatedBottomPadding(): Int =
+        if (systemBottomInset > 0) systemBottomInset + dpToPx(2) else dpToPx(6)
+
+
+    /** Height the emoji / clipboard panels should match: what the letter keyboard really uses. */
+    private fun getPanelContentHeight(): Int = maxOf(getStandardContentHeight(), renderedRowsHeight)
+
+    private fun getEmojiPanelHeightHint(): Int = getPanelContentHeight() + dpToPx(42) + dpToPx(3)
 
     private fun getStandardContentHeight(): Int {
         val isTablet = context.resources.configuration.smallestScreenWidthDp >= 600
@@ -1340,5 +1700,13 @@ class CustomKeyboardView @JvmOverloads constructor(
 
     private fun dpToPx(dp: Int): Int {
         return (dp * context.resources.displayMetrics.density).toInt()
+    }
+
+    private companion object {
+        /** Number row height as a fraction of a letter row. */
+        const val NUMBER_ROW_RATIO = 0.82f
+
+        /** Absolute floor for a key row, so compact + landscape stays tappable. */
+        const val MIN_ROW_DP = 34
     }
 }

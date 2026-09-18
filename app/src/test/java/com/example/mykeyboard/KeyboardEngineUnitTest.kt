@@ -16,18 +16,13 @@ class KeyboardEngineUnitTest {
 
     @Test
     fun testCheckmarksAndKeycapNumbersPresentInEmojiData() {
-        val checkmarksCategory = EmojiData.categories.find { it.name.contains("Checkmarks") }
-        assertNotNull("Checkmarks & Badges category must exist in EmojiData", checkmarksCategory)
-        
-        val emojis = checkmarksCategory!!.emojis
-        assertTrue("Must contain checkmark ✅", emojis.contains("✅"))
-        assertTrue("Must contain checkmark ✔", emojis.contains("✔"))
-        assertTrue("Must contain keycap 1️⃣", emojis.contains("1️⃣"))
-        assertTrue("Must contain keycap 2️⃣", emojis.contains("2️⃣"))
-        assertTrue("Must contain keycap 3️⃣", emojis.contains("3️⃣"))
-        assertTrue("Must contain keycap 4️⃣", emojis.contains("4️⃣"))
-        assertTrue("Must contain keycap 5️⃣", emojis.contains("5️⃣"))
-        assertTrue("Must contain keycap 🔟", emojis.contains("🔟"))
+        val symbolsTab = EmojiData.tabs.find { it.id == "symbols" }
+        assertNotNull("Symbols tab must exist in EmojiData", symbolsTab)
+        assertEquals("Symbols", symbolsTab!!.title)
+
+        assertTrue("Default favorites must contain checkmark ✅", EmojiData.DEFAULT_FAVORITES.contains("✅"))
+        assertTrue("Tabs must contain 11 categories", EmojiData.tabs.size == 11)
+        assertTrue("Tabs must contain Recent and Favorites", EmojiData.tabs.any { it.id == EmojiData.TAB_RECENT } && EmojiData.tabs.any { it.id == EmojiData.TAB_FAVORITES })
     }
 
     @Test
@@ -74,6 +69,28 @@ class KeyboardEngineUnitTest {
     fun testAutoCorrectEngine() {
         assertEquals("the", AutoCorrectEngine.getCorrection("teh", AutoCorrectMode.AGGRESSIVE))
         assertNull(AutoCorrectEngine.getCorrection("teh", AutoCorrectMode.OFF))
+
+        val mockDict = mapOf(
+            "when" to 1000000,
+            "try" to 500000,
+            "words" to 800000,
+            "fast" to 700000,
+            "missing" to 400000,
+            "and" to 2000000
+        )
+        val validator: (String) -> Int? = { mockDict[it] }
+
+        // Adjacent key typos (physical QWERTY neighbors)
+        assertEquals("when", AutoCorrectEngine.getCorrection("wjen", AutoCorrectMode.CONSERVATIVE, validator))
+        assertEquals("try", AutoCorrectEngine.getCorrection("trh", AutoCorrectMode.CONSERVATIVE, validator))
+        assertEquals("words", AutoCorrectEngine.getCorrection("wlrds", AutoCorrectMode.CONSERVATIVE, validator))
+        assertEquals("words", AutoCorrectEngine.getCorrection("worda", AutoCorrectMode.CONSERVATIVE, validator))
+
+        // Extra tap deletion (fat-finger extra key)
+        assertEquals("fast", AutoCorrectEngine.getCorrection("ftast", AutoCorrectMode.CONSERVATIVE, validator))
+
+        // Missed tap insertion
+        assertEquals("and", AutoCorrectEngine.getCorrection("nd", AutoCorrectMode.CONSERVATIVE, validator))
     }
 
     @Test

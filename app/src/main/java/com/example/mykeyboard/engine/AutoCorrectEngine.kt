@@ -189,13 +189,103 @@ object AutoCorrectEngine {
         "abt" to "about"
     )
 
-    fun getCorrection(word: String, mode: AutoCorrectMode): String? {
+    val QWERTY_ADJACENT_MAP: Map<Char, List<Char>> = mapOf(
+        'q' to listOf('w', 'a', 's'),
+        'w' to listOf('q', 'e', 'a', 's', 'd'),
+        'e' to listOf('w', 'r', 's', 'd', 'f'),
+        'r' to listOf('e', 't', 'd', 'f', 'g'),
+        't' to listOf('r', 'y', 'f', 'g', 'h'),
+        'y' to listOf('t', 'u', 'g', 'h', 'j'),
+        'u' to listOf('y', 'i', 'h', 'j', 'k'),
+        'i' to listOf('u', 'o', 'j', 'k', 'l'),
+        'o' to listOf('i', 'p', 'k', 'l'),
+        'p' to listOf('o', 'l'),
+        'a' to listOf('q', 'w', 's', 'z'),
+        's' to listOf('a', 'd', 'w', 'e', 'z', 'x'),
+        'd' to listOf('s', 'f', 'e', 'r', 'x', 'c'),
+        'f' to listOf('d', 'g', 'r', 't', 'c', 'v'),
+        'g' to listOf('f', 'h', 't', 'y', 'v', 'b'),
+        'h' to listOf('g', 'j', 'y', 'u', 'b', 'n'),
+        'j' to listOf('h', 'k', 'u', 'i', 'n', 'm'),
+        'k' to listOf('j', 'l', 'i', 'o', 'm'),
+        'l' to listOf('k', 'o', 'p'),
+        'z' to listOf('a', 's', 'x'),
+        'x' to listOf('z', 'c', 's', 'd'),
+        'c' to listOf('x', 'v', 'd', 'f'),
+        'v' to listOf('c', 'b', 'f', 'g'),
+        'b' to listOf('v', 'n', 'g', 'h'),
+        'n' to listOf('b', 'm', 'h', 'j'),
+        'm' to listOf('n', 'j', 'k')
+    )
+
+    fun getCorrection(word: String, mode: AutoCorrectMode, wordValidator: ((String) -> Int?)? = null): String? {
         if (mode == AutoCorrectMode.OFF || word.length < 2) return null
 
         val lower = word.lowercase()
         val direct = TYPO_MAP[lower]
         if (direct != null) {
             return matchCasing(word, direct)
+        }
+
+        if (wordValidator != null) {
+            // If the word itself is already in the dictionary with high frequency, don't autocorrect in conservative mode
+            val exactFreq = wordValidator(lower)
+            if (mode == AutoCorrectMode.CONSERVATIVE && exactFreq != null && exactFreq > 500) {
+                return null
+            }
+
+            val candidates = mutableMapOf<String, Long>()
+
+            // 1. Proximity: Adjacent key substitutions (e.g. wjen -> when, trh -> try, wlrds -> words, worda -> words)
+            for (i in 0 until lower.length) {
+                val adjList = QWERTY_ADJACENT_MAP[lower[i]] ?: emptyList()
+                for (adj in adjList) {
+                    val candidate = lower.substring(0, i) + adj + lower.substring(i + 1)
+                    wordValidator(candidate)?.let { freq ->
+                        candidates[candidate] = maxOf(candidates[candidate] ?: 0L, freq.toLong() * 2L + 15_000_000L)
+                    }
+                }
+            }
+
+            // 2. Extra tap: Single-character deletion (e.g. ftast -> fast, miising -> missing)
+            if (lower.length >= 3) {
+                for (i in 0 until lower.length) {
+                    val candidate = lower.removeRange(i, i + 1)
+                    if (candidate.length >= 2) {
+                        wordValidator(candidate)?.let { freq ->
+                            candidates[candidate] = maxOf(candidates[candidate] ?: 0L, freq.toLong() + 10_000_000L)
+                        }
+                    }
+                }
+            }
+
+            // 3. Transposition: Swap adjacent characters (e.g. adn -> and, wrod -> word)
+            for (i in 0 until lower.length - 1) {
+                val candidate = lower.substring(0, i) + lower[i + 1] + lower[i] + lower.substring(i + 2)
+                wordValidator(candidate)?.let { freq ->
+                    candidates[candidate] = maxOf(candidates[candidate] ?: 0L, freq.toLong() * 2L + 12_000_000L)
+                }
+            }
+
+            // 4. Missed tap: Single-character insertion (e.g. nd -> and, re -> are)
+            if (lower.length in 2..6) {
+                val commonInserts = charArrayOf('a', 'e', 'i', 'o', 'u', 's', 't', 'r', 'n', 'l', 'h')
+                for (i in 0..lower.length) {
+                    for (c in commonInserts) {
+                        val candidate = lower.substring(0, i) + c + lower.substring(i)
+                        wordValidator(candidate)?.let { freq ->
+                            candidates[candidate] = maxOf(candidates[candidate] ?: 0L, freq.toLong())
+                        }
+                    }
+                }
+            }
+
+            if (candidates.isNotEmpty()) {
+                val best = candidates.maxByOrNull { it.value }?.key
+                if (best != null && best != lower) {
+                    return matchCasing(word, best)
+                }
+            }
         }
 
         if (mode == AutoCorrectMode.AGGRESSIVE) {
